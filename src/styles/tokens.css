@@ -1,0 +1,159 @@
+/* ============================================================================
+   Design tokens — single source of truth for color, spacing, type, radius.
+   Component CSS should reference these variables, not raw values.
+   ============================================================================ */
+
+:root {
+  /* --- Color: neutrals (warm-gray scale, not pure gray) ------------------ */
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f7f7f8;
+  --color-bg-muted: #eef0f2;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f4f5f6;
+  --color-border: #e2e4e8;
+  --color-border-strong: #cbced4;
+
+  --color-text: #171a1f;
+  --color-text-secondary: #565c66;
+  --color-text-muted: #868c96;
+  --color-text-inverse: #ffffff;
+
+  /* --- Color: brand (desaturated indigo — used sparingly) ----------------- */
+  --color-brand: #3457d5;
+  --color-brand-hover: #2c48b8;
+  --color-brand-active: #24399a;
+  --color-brand-subtle: #eef1fd;
+  --color-brand-border: #c3ccf7;
+
+  /* --- Color: semantic ----------------------------------------------------- */
+  --color-success: #12805c;
+  --color-success-subtle: #e7f6ef;
+  --color-danger: #c0362c;
+  --color-danger-subtle: #fbeceb;
+  --color-warning: #a15c07;
+  --color-warning-subtle: #fdf3e2;
+  --color-upvote: #c0362c;
+  --color-accept: #12805c;
+
+  /* --- Typography ------------------------------------------------------- */
+  --font-sans: var(--font-plex-arabic), "Segoe UI", Tahoma, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* --- Spacing scale ------------------------------------------------------ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* --- Radius ------------------------------------------------------------ */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+
+  /* --- Shadow (used sparingly: menus/modals only, not every card) -------- */
+  --shadow-sm: 0 1px 2px rgba(15, 18, 25, 0.06);
+  --shadow-md: 0 4px 16px rgba(15, 18, 25, 0.12);
+
+  /* --- Motion -------------------------------------------------------------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+
+  /* --- Layout -------------------------------------------------------------- */
+  --header-height: 56px;
+  --content-max-width: 720px;
+  --sidebar-width: 264px;
+  --z-header: 100;
+  --z-dropdown: 200;
+  --z-modal: 300;
+  --z-toast: 400;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #0e1116;
+    --color-bg-subtle: #12151b;
+    --color-bg-muted: #1a1e26;
+    --color-surface: #161a21;
+    --color-surface-hover: #1d222b;
+    --color-border: #262b34;
+    --color-border-strong: #383f4b;
+
+    --color-text: #e8e9ec;
+    --color-text-secondary: #a9adb6;
+    --color-text-muted: #767c88;
+    --color-text-inverse: #12151b;
+
+    --color-brand: #6b83ea;
+    --color-brand-hover: #8098f0;
+    --color-brand-active: #94a9f2;
+    --color-brand-subtle: #191d2d;
+    --color-brand-border: #33396b;
+
+    --color-success: #3fbe8f;
+    --color-success-subtle: #10261f;
+    --color-danger: #e2685f;
+    --color-danger-subtle: #2c1917;
+    --color-warning: #d9a441;
+    --color-warning-subtle: #2a2011;
+    --color-upvote: #e2685f;
+    --color-accept: #3fbe8f;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #0e1116;
+  --color-bg-subtle: #12151b;
+  --color-bg-muted: #1a1e26;
+  --color-surface: #161a21;
+  --color-surface-hover: #1d222b;
+  --color-border: #262b34;
+  --color-border-strong: #383f4b;
+
+  --color-text: #e8e9ec;
+  --color-text-secondary: #a9adb6;
+  --color-text-muted: #767c88;
+  --color-text-inverse: #12151b;
+
+  --color-brand: #6b83ea;
+  --color-brand-hover: #8098f0;
+  --color-brand-active: #94a9f2;
+  --color-brand-subtle: #191d2d;
+  --color-brand-border: #33396b;
+
+  --color-success: #3fbe8f;
+  --color-success-subtle: #10261f;
+  --color-danger: #e2685f;
+  --color-danger-subtle: #2c1917;
+  --color-warning: #d9a441;
+  --color-warning-subtle: #2a2011;
+  --color-upvote: #e2685f;
+  --color-accept: #3fbe8f;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+}

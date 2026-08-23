@@ -1,0 +1,32 @@
+{
+  "name": "javascript-arabic-community",
+  "version": "0.1.0",
+  "private": true,
+  "description": "منصة مجتمع JavaScript العربي - Social platform for Arabic JavaScript developers",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NourElshahawy/JavaScript-Arabic-Community.git"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.10",
+    "lucide-react": "^1.33.0",
+    "next": "^14.2.18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.54.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.18"
+  }
+}

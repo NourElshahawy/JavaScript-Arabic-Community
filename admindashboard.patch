@@ -1,0 +1,765 @@
+diff --git a/src/app/admin/layout.js b/src/app/admin/layout.js
+new file mode 100644
+index 0000000..f777ee6
+--- /dev/null
++++ b/src/app/admin/layout.js
+@@ -0,0 +1,47 @@
++import { redirect } from "next/navigation";
++import { ShieldAlert } from "lucide-react";
++import { Navbar } from "@/components/layout/Navbar";
++import { AdminNav } from "@/components/admin/AdminNav";
++import { getCurrentUser } from "@/lib/supabase/current-user";
++import { EmptyState } from "@/components/ui/States";
++
++export const metadata = { title: "لوحة التحكم" };
++
++// Page-level gate for UX only (redirect non-admins away from the dashboard
++// shell). The real enforcement is the "is_admin(auth.uid())" checks baked
++// into every admin-only RLS policy in the database — this layout cannot be
++// bypassed into real write access even if someone reached these routes
++// directly, because Postgres would reject the mutation regardless.
++export default async function AdminLayout({ children }) {
++  const { user, profile } = await getCurrentUser();
++  if (!user) redirect("/login?next=/admin");
++
++  if (!profile || profile.role !== "admin") {
++    return (
++      <div className="app-shell">
++        <Navbar profile={profile} />
++        <div className="admin-shell">
++          <div className="card">
++            <EmptyState icon={ShieldAlert} title="غير مصرّح بالوصول" description="هذه الصفحة مخصصة للمشرفين فقط." />
++          </div>
++        </div>
++      </div>
++    );
++  }
++
++  return (
++    <div className="app-shell">
++      <Navbar profile={profile} />
++      <div className="admin-shell">
++        <div>
++          <h1 style={{ marginBottom: "var(--space-1)" }}>لوحة التحكم</h1>
++          <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)", marginBottom: "var(--space-4)" }}>
++            إدارة المستخدمين والتقارير والمحتوى
++          </p>
++          <AdminNav />
++        </div>
++        {children}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/admin/page.js b/src/app/admin/page.js
+new file mode 100644
+index 0000000..8b9944d
+--- /dev/null
++++ b/src/app/admin/page.js
+@@ -0,0 +1,53 @@
++import { createClient } from "@/lib/supabase/server";
++
++async function countRows(supabase, table, filters = {}) {
++  let query = supabase.from(table).select("*", { count: "exact", head: true });
++  for (const [column, value] of Object.entries(filters)) {
++    query = query.eq(column, value);
++  }
++  const { count } = await query;
++  return count ?? 0;
++}
++
++export default async function AdminOverviewPage() {
++  const supabase = await createClient();
++
++  const [
++    totalUsers,
++    activeUsers,
++    suspendedUsers,
++    totalPosts,
++    totalComments,
++    pendingReports,
++    totalTags,
++  ] = await Promise.all([
++    countRows(supabase, "profiles"),
++    countRows(supabase, "profiles", { status: "active" }),
++    countRows(supabase, "profiles", { status: "suspended" }),
++    countRows(supabase, "posts", { status: "approved" }),
++    countRows(supabase, "comments"),
++    countRows(supabase, "reports", { status: "pending" }),
++    countRows(supabase, "tags"),
++  ]);
++
++  const stats = [
++    { label: "إجمالي المستخدمين", value: totalUsers },
++    { label: "مستخدمون نشطون", value: activeUsers },
++    { label: "مستخدمون موقوفون", value: suspendedUsers },
++    { label: "إجمالي المنشورات", value: totalPosts },
++    { label: "إجمالي التعليقات", value: totalComments },
++    { label: "تقارير قيد الانتظار", value: pendingReports },
++    { label: "الوسوم", value: totalTags },
++  ];
++
++  return (
++    <div className="stat-grid">
++      {stats.map((stat) => (
++        <div key={stat.label} className="card stat-card">
++          <span className="stat-card__value">{stat.value}</span>
++          <span className="stat-card__label">{stat.label}</span>
++        </div>
++      ))}
++    </div>
++  );
++}
+diff --git a/src/app/admin/posts/page.js b/src/app/admin/posts/page.js
+new file mode 100644
+index 0000000..b853a4e
+--- /dev/null
++++ b/src/app/admin/posts/page.js
+@@ -0,0 +1,15 @@
++import { createClient } from "@/lib/supabase/server";
++import { PostsModerationTable } from "@/components/admin/PostsModerationTable";
++
++export const metadata = { title: "المنشورات · لوحة التحكم" };
++
++export default async function AdminPostsPage() {
++  const supabase = await createClient();
++  const { data: posts } = await supabase
++    .from("posts")
++    .select("id, body, likes_count, comments_count, created_at, author:profiles!posts_author_id_fkey(username)")
++    .order("created_at", { ascending: false })
++    .limit(200);
++
++  return <PostsModerationTable initialPosts={posts ?? []} />;
++}
+diff --git a/src/app/admin/reports/page.js b/src/app/admin/reports/page.js
+new file mode 100644
+index 0000000..dfb5df5
+--- /dev/null
++++ b/src/app/admin/reports/page.js
+@@ -0,0 +1,15 @@
++import { createClient } from "@/lib/supabase/server";
++import { ReportsList } from "@/components/admin/ReportsList";
++
++export const metadata = { title: "التقارير · لوحة التحكم" };
++
++export default async function AdminReportsPage() {
++  const supabase = await createClient();
++  const { data: reports } = await supabase
++    .from("reports")
++    .select("id, content_type, content_id, reason, description, status, created_at, reporter:profiles!reports_reporter_id_fkey(username)")
++    .order("created_at", { ascending: false })
++    .limit(200);
++
++  return <ReportsList initialReports={reports ?? []} />;
++}
+diff --git a/src/app/admin/tags/page.js b/src/app/admin/tags/page.js
+new file mode 100644
+index 0000000..9678042
+--- /dev/null
++++ b/src/app/admin/tags/page.js
+@@ -0,0 +1,11 @@
++import { createClient } from "@/lib/supabase/server";
++import { TagsManager } from "@/components/admin/TagsManager";
++
++export const metadata = { title: "الوسوم · لوحة التحكم" };
++
++export default async function AdminTagsPage() {
++  const supabase = await createClient();
++  const { data: tags } = await supabase.from("tags").select("id, name, slug, usage_count").order("usage_count", { ascending: false });
++
++  return <TagsManager initialTags={tags ?? []} />;
++}
+diff --git a/src/app/admin/users/page.js b/src/app/admin/users/page.js
+new file mode 100644
+index 0000000..39047e9
+--- /dev/null
++++ b/src/app/admin/users/page.js
+@@ -0,0 +1,17 @@
++import { createClient } from "@/lib/supabase/server";
++import { getCurrentUser } from "@/lib/supabase/current-user";
++import { UsersTable } from "@/components/admin/UsersTable";
++
++export const metadata = { title: "المستخدمون · لوحة التحكم" };
++
++export default async function AdminUsersPage() {
++  const { user } = await getCurrentUser();
++  const supabase = await createClient();
++  const { data: users } = await supabase
++    .from("profiles")
++    .select("id, username, full_name, avatar_url, role, status, reputation")
++    .order("created_at", { ascending: false })
++    .limit(200);
++
++  return <UsersTable initialUsers={users ?? []} currentUserId={user.id} />;
++}
+diff --git a/src/components/admin/AdminNav.js b/src/components/admin/AdminNav.js
+new file mode 100644
+index 0000000..a328d62
+--- /dev/null
++++ b/src/components/admin/AdminNav.js
+@@ -0,0 +1,26 @@
++"use client";
++
++import Link from "next/link";
++import { usePathname } from "next/navigation";
++
++const TABS = [
++  { href: "/admin", label: "نظرة عامة" },
++  { href: "/admin/users", label: "المستخدمون" },
++  { href: "/admin/reports", label: "التقارير" },
++  { href: "/admin/tags", label: "الوسوم" },
++  { href: "/admin/posts", label: "المنشورات" },
++];
++
++export function AdminNav() {
++  const pathname = usePathname();
++
++  return (
++    <nav className="admin-nav" aria-label="تنقل لوحة التحكم">
++      {TABS.map((tab) => (
++        <Link key={tab.href} href={tab.href} className="admin-nav__item" data-active={pathname === tab.href}>
++          {tab.label}
++        </Link>
++      ))}
++    </nav>
++  );
++}
+diff --git a/src/components/admin/PostsModerationTable.js b/src/components/admin/PostsModerationTable.js
+new file mode 100644
+index 0000000..76a8278
+--- /dev/null
++++ b/src/components/admin/PostsModerationTable.js
+@@ -0,0 +1,58 @@
++"use client";
++
++import { useState } from "react";
++import Link from "next/link";
++import { createClient } from "@/lib/supabase/client";
++import { timeAgo } from "@/lib/format";
++import { Trash2 } from "lucide-react";
++
++export function PostsModerationTable({ initialPosts }) {
++  const [posts, setPosts] = useState(initialPosts);
++
++  async function handleDelete(postId) {
++    const supabase = createClient();
++    const { error } = await supabase.from("posts").delete().eq("id", postId);
++    if (!error) {
++      setPosts((prev) => prev.filter((p) => p.id !== postId));
++    }
++  }
++
++  return (
++    <div className="card admin-table-wrap">
++      <table className="admin-table">
++        <thead>
++          <tr>
++            <th>المحتوى</th>
++            <th>الكاتب</th>
++            <th>الإعجابات</th>
++            <th>التعليقات</th>
++            <th>الوقت</th>
++            <th></th>
++          </tr>
++        </thead>
++        <tbody>
++          {posts.map((post) => (
++            <tr key={post.id}>
++              <td style={{ maxWidth: 320 }}>
++                <Link href={`/posts/${post.id}`}>{post.body.slice(0, 80)}</Link>
++              </td>
++              <td>
++                <Link href={`/u/${post.author?.username}`} className="ltr">
++                  @{post.author?.username}
++                </Link>
++              </td>
++              <td>{post.likes_count}</td>
++              <td>{post.comments_count}</td>
++              <td>{timeAgo(post.created_at)}</td>
++              <td>
++                <button className="btn btn--icon btn--sm" aria-label="حذف المنشور" onClick={() => handleDelete(post.id)}>
++                  <Trash2 size={14} />
++                </button>
++              </td>
++            </tr>
++          ))}
++        </tbody>
++      </table>
++    </div>
++  );
++}
+diff --git a/src/components/admin/ReportsList.js b/src/components/admin/ReportsList.js
+new file mode 100644
+index 0000000..9e7915d
+--- /dev/null
++++ b/src/components/admin/ReportsList.js
+@@ -0,0 +1,99 @@
++"use client";
++
++import { useState } from "react";
++import Link from "next/link";
++import { createClient } from "@/lib/supabase/client";
++import { Badge } from "@/components/ui/Badge";
++import { EmptyState } from "@/components/ui/States";
++import { ShieldCheck } from "lucide-react";
++import { timeAgo } from "@/lib/format";
++
++const REASON_LABEL = {
++  spam: "سبام",
++  harassment: "مضايقة",
++  offensive: "محتوى مسيء",
++  fake_information: "معلومات مغلوطة",
++  copyright: "حقوق ملكية",
++  other: "أخرى",
++};
++
++const STATUS_VARIANT = { pending: "warning", reviewed: "brand", actioned: "success", dismissed: "neutral" };
++const STATUS_LABEL = { pending: "قيد الانتظار", reviewed: "تمت المراجعة", actioned: "تم اتخاذ إجراء", dismissed: "مرفوض" };
++
++function contentHref(report) {
++  if (report.content_type === "post") return `/posts/${report.content_id}`;
++  return null;
++}
++
++export function ReportsList({ initialReports }) {
++  const [reports, setReports] = useState(initialReports);
++  const [pendingId, setPendingId] = useState(null);
++
++  async function setStatus(reportId, status) {
++    setPendingId(reportId);
++    const supabase = createClient();
++    const { error } = await supabase.from("reports").update({ status, reviewed_at: new Date().toISOString() }).eq("id", reportId);
++    if (!error) {
++      setReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, status } : r)));
++    }
++    setPendingId(null);
++  }
++
++  if (reports.length === 0) {
++    return (
++      <div className="card">
++        <EmptyState icon={ShieldCheck} title="لا توجد تقارير" description="ستظهر هنا البلاغات المقدَّمة من المستخدمين." />
++      </div>
++    );
++  }
++
++  return (
++    <div className="card admin-table-wrap">
++      <table className="admin-table">
++        <thead>
++          <tr>
++            <th>النوع</th>
++            <th>السبب</th>
++            <th>مُقدَّم من</th>
++            <th>الوقت</th>
++            <th>الحالة</th>
++            <th>إجراءات</th>
++          </tr>
++        </thead>
++        <tbody>
++          {reports.map((r) => {
++            const href = contentHref(r);
++            return (
++              <tr key={r.id}>
++                <td>{href ? <Link href={href}>{r.content_type}</Link> : r.content_type}</td>
++                <td>
++                  {REASON_LABEL[r.reason]}
++                  {r.description ? (
++                    <span style={{ display: "block", color: "var(--color-text-muted)", fontSize: "var(--text-xs)" }}>
++                      {r.description}
++                    </span>
++                  ) : null}
++                </td>
++                <td>{r.reporter ? `@${r.reporter.username}` : "—"}</td>
++                <td>{timeAgo(r.created_at)}</td>
++                <td>
++                  <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
++                </td>
++                <td>
++                  <div className="admin-row-actions">
++                    <button className="btn btn--outline btn--sm" disabled={pendingId === r.id} onClick={() => setStatus(r.id, "actioned")}>
++                      اتخاذ إجراء
++                    </button>
++                    <button className="btn btn--ghost btn--sm" disabled={pendingId === r.id} onClick={() => setStatus(r.id, "dismissed")}>
++                      رفض
++                    </button>
++                  </div>
++                </td>
++              </tr>
++            );
++          })}
++        </tbody>
++      </table>
++    </div>
++  );
++}
+diff --git a/src/components/admin/TagsManager.js b/src/components/admin/TagsManager.js
+new file mode 100644
+index 0000000..2983e15
+--- /dev/null
++++ b/src/components/admin/TagsManager.js
+@@ -0,0 +1,89 @@
++"use client";
++
++import { useState } from "react";
++import { createClient } from "@/lib/supabase/client";
++import { Button } from "@/components/ui/Button";
++import { Input } from "@/components/ui/Field";
++import { Trash2 } from "lucide-react";
++
++function slugify(name) {
++  return name.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^\w-]/g, "");
++}
++
++export function TagsManager({ initialTags }) {
++  const [tags, setTags] = useState(initialTags);
++  const [name, setName] = useState("");
++  const [submitting, setSubmitting] = useState(false);
++  const [error, setError] = useState("");
++
++  async function handleCreate(event) {
++    event.preventDefault();
++    const trimmed = name.trim();
++    const slug = slugify(trimmed);
++    if (!trimmed || !slug) return;
++
++    setSubmitting(true);
++    setError("");
++    const supabase = createClient();
++    const { data, error: insertError } = await supabase.from("tags").insert({ slug, name: trimmed }).select("id, name, slug, usage_count").single();
++
++    if (insertError) {
++      setError(insertError.message.includes("duplicate") ? "هذا الوسم موجود بالفعل." : "تعذّر إنشاء الوسم.");
++      setSubmitting(false);
++      return;
++    }
++
++    setTags((prev) => [data, ...prev]);
++    setName("");
++    setSubmitting(false);
++  }
++
++  async function handleDelete(tagId) {
++    const supabase = createClient();
++    const { error: deleteError } = await supabase.from("tags").delete().eq("id", tagId);
++    if (!deleteError) {
++      setTags((prev) => prev.filter((t) => t.id !== tagId));
++    }
++  }
++
++  return (
++    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
++      <form onSubmit={handleCreate} className="card" style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
++        <div style={{ flex: 1 }}>
++          <Input placeholder="اسم الوسم، مثل: WebAssembly" value={name} onChange={(e) => setName(e.target.value)} />
++          {error ? <span className="field__error">{error}</span> : null}
++        </div>
++        <Button type="submit" disabled={submitting || !name.trim()}>
++          إضافة وسم
++        </Button>
++      </form>
++
++      <div className="card admin-table-wrap">
++        <table className="admin-table">
++          <thead>
++            <tr>
++              <th>الوسم</th>
++              <th>الاستخدام</th>
++              <th></th>
++            </tr>
++          </thead>
++          <tbody>
++            {tags.map((tag) => (
++              <tr key={tag.id}>
++                <td>
++                  {tag.name} <span className="post__author-username ltr">#{tag.slug}</span>
++                </td>
++                <td>{tag.usage_count}</td>
++                <td>
++                  <button className="btn btn--icon btn--sm" aria-label="حذف الوسم" onClick={() => handleDelete(tag.id)}>
++                    <Trash2 size={14} />
++                  </button>
++                </td>
++              </tr>
++            ))}
++          </tbody>
++        </table>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/admin/UsersTable.js b/src/components/admin/UsersTable.js
+new file mode 100644
+index 0000000..fe0e562
+--- /dev/null
++++ b/src/components/admin/UsersTable.js
+@@ -0,0 +1,104 @@
++"use client";
++
++import { useState } from "react";
++import Link from "next/link";
++import { createClient } from "@/lib/supabase/client";
++import { Avatar } from "@/components/ui/Avatar";
++import { Badge } from "@/components/ui/Badge";
++
++const ROLE_VARIANT = { admin: "brand", moderator: "warning", member: "neutral" };
++const ROLE_LABEL = { admin: "أدمن", moderator: "مشرف", member: "عضو" };
++const STATUS_VARIANT = { active: "success", suspended: "warning", banned: "danger" };
++const STATUS_LABEL = { active: "نشط", suspended: "موقوف", banned: "محظور" };
++
++export function UsersTable({ initialUsers, currentUserId }) {
++  const [users, setUsers] = useState(initialUsers);
++  const [pendingId, setPendingId] = useState(null);
++
++  async function updateUser(userId, patch) {
++    setPendingId(userId);
++    const supabase = createClient();
++    const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
++    if (!error) {
++      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...patch } : u)));
++    }
++    setPendingId(null);
++  }
++
++  return (
++    <div className="card admin-table-wrap">
++      <table className="admin-table">
++        <thead>
++          <tr>
++            <th>المستخدم</th>
++            <th>الدور</th>
++            <th>الحالة</th>
++            <th>النقاط</th>
++            <th>إجراءات</th>
++          </tr>
++        </thead>
++        <tbody>
++          {users.map((u) => (
++            <tr key={u.id}>
++              <td>
++                <Link href={`/u/${u.username}`} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
++                  <Avatar src={u.avatar_url} name={u.full_name} size="sm" />
++                  <span>
++                    {u.full_name}
++                    <span className="post__author-username ltr" style={{ display: "block" }}>
++                      @{u.username}
++                    </span>
++                  </span>
++                </Link>
++              </td>
++              <td>
++                <Badge variant={ROLE_VARIANT[u.role]}>{ROLE_LABEL[u.role]}</Badge>
++              </td>
++              <td>
++                <Badge variant={STATUS_VARIANT[u.status]}>{STATUS_LABEL[u.status]}</Badge>
++              </td>
++              <td>{u.reputation}</td>
++              <td>
++                <div className="admin-row-actions">
++                  {u.id === currentUserId ? (
++                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)" }}>أنت</span>
++                  ) : (
++                    <>
++                      {u.role !== "moderator" ? (
++                        <button className="btn btn--outline btn--sm" disabled={pendingId === u.id} onClick={() => updateUser(u.id, { role: "moderator" })}>
++                          تعيين مشرف
++                        </button>
++                      ) : (
++                        <button className="btn btn--outline btn--sm" disabled={pendingId === u.id} onClick={() => updateUser(u.id, { role: "member" })}>
++                          إلغاء الإشراف
++                        </button>
++                      )}
++                      {u.status === "active" ? (
++                        <button className="btn btn--outline btn--sm" disabled={pendingId === u.id} onClick={() => updateUser(u.id, { status: "suspended" })}>
++                          إيقاف مؤقت
++                        </button>
++                      ) : (
++                        <button className="btn btn--outline btn--sm" disabled={pendingId === u.id} onClick={() => updateUser(u.id, { status: "active" })}>
++                          إلغاء الإيقاف
++                        </button>
++                      )}
++                      {u.status !== "banned" ? (
++                        <button className="btn btn--danger btn--sm" disabled={pendingId === u.id} onClick={() => updateUser(u.id, { status: "banned" })}>
++                          حظر
++                        </button>
++                      ) : (
++                        <button className="btn btn--outline btn--sm" disabled={pendingId === u.id} onClick={() => updateUser(u.id, { status: "active" })}>
++                          رفع الحظر
++                        </button>
++                      )}
++                    </>
++                  )}
++                </div>
++              </td>
++            </tr>
++          ))}
++        </tbody>
++      </table>
++    </div>
++  );
++}
+diff --git a/src/components/layout/UserMenu.js b/src/components/layout/UserMenu.js
+index 1b36ec7..b9081cc 100644
+--- a/src/components/layout/UserMenu.js
++++ b/src/components/layout/UserMenu.js
+@@ -3,7 +3,7 @@
+ import { useEffect, useRef, useState } from "react";
+ import Link from "next/link";
+ import { useRouter } from "next/navigation";
+-import { LogOut, Settings, User as UserIcon } from "lucide-react";
++import { LogOut, Settings, ShieldCheck, User as UserIcon } from "lucide-react";
+ import { Avatar } from "@/components/ui/Avatar";
+ import { createClient } from "@/lib/supabase/client";
+ 
+@@ -46,6 +46,11 @@ export function UserMenu({ profile }) {
+           <Link href="/settings/profile" className="menu__item" onClick={() => setOpen(false)}>
+             <Settings size={16} /> الإعدادات
+           </Link>
++          {profile?.role === "admin" ? (
++            <Link href="/admin" className="menu__item" onClick={() => setOpen(false)}>
++              <ShieldCheck size={16} /> لوحة التحكم
++            </Link>
++          ) : null}
+           <div className="menu__separator" />
+           <button type="button" className="menu__item menu__item--danger" onClick={handleLogout}>
+             <LogOut size={16} /> تسجيل الخروج
+diff --git a/src/styles/components.css b/src/styles/components.css
+index 455f203..dec49a8 100644
+--- a/src/styles/components.css
++++ b/src/styles/components.css
+@@ -1039,3 +1039,97 @@ a.tag:hover {
+ .comment__replies {
+   margin-inline-start: var(--space-6);
+ }
++
++/* --- Admin dashboard --------------------------------------------------- */
++
++.admin-shell {
++  max-width: 1120px;
++  margin: 0 auto;
++  padding: var(--space-5) var(--space-4) var(--space-7);
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-5);
++}
++
++.admin-nav {
++  display: flex;
++  gap: var(--space-1);
++  border-bottom: 1px solid var(--color-border);
++  overflow-x: auto;
++}
++
++.admin-nav__item {
++  padding: var(--space-3) var(--space-3);
++  font-size: var(--text-sm);
++  font-weight: var(--weight-medium);
++  color: var(--color-text-muted);
++  border-bottom: 2px solid transparent;
++  margin-bottom: -1px;
++  white-space: nowrap;
++}
++
++.admin-nav__item:hover {
++  color: var(--color-text);
++}
++
++.admin-nav__item[data-active="true"] {
++  color: var(--color-text);
++  border-bottom-color: var(--color-brand);
++}
++
++.stat-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
++  gap: var(--space-3);
++}
++
++.stat-card {
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++}
++
++.stat-card__value {
++  font-size: var(--text-xl);
++  font-weight: var(--weight-semibold);
++}
++
++.stat-card__label {
++  font-size: var(--text-sm);
++  color: var(--color-text-muted);
++}
++
++.admin-table-wrap {
++  overflow-x: auto;
++}
++
++.admin-table {
++  width: 100%;
++  border-collapse: collapse;
++  font-size: var(--text-sm);
++}
++
++.admin-table th {
++  text-align: start;
++  padding: var(--space-2) var(--space-3);
++  color: var(--color-text-muted);
++  font-weight: var(--weight-medium);
++  border-bottom: 1px solid var(--color-border);
++  white-space: nowrap;
++}
++
++.admin-table td {
++  padding: var(--space-2) var(--space-3);
++  border-bottom: 1px solid var(--color-border);
++  vertical-align: middle;
++}
++
++.admin-table tr:last-child td {
++  border-bottom: none;
++}
++
++.admin-row-actions {
++  display: flex;
++  gap: var(--space-1);
++  flex-wrap: wrap;
++}
+diff --git a/supabase/migrations/0007_protect_privileged_profile_columns.sql b/supabase/migrations/0007_protect_privileged_profile_columns.sql
+new file mode 100644
+index 0000000..6b0db4f
+--- /dev/null
++++ b/supabase/migrations/0007_protect_privileged_profile_columns.sql
+@@ -0,0 +1,32 @@
++-- ============================================================================
++-- Close a privilege-escalation gap on public.profiles.
++--
++-- "users update own profile" (0001_init_schema.sql) uses
++-- `using (auth.uid() = id) with check (auth.uid() = id)` — that only checks
++-- row ownership. Postgres RLS has no built-in column-level restriction, so
++-- as written any signed-in user could call:
++--   supabase.from('profiles').update({ role: 'admin' }).eq('id', auth.uid())
++-- and it would succeed. This trigger closes that: for any UPDATE not
++-- performed by an admin, it silently resets role/status/reputation back to
++-- their previous values (a self-update to full_name/bio/etc. still goes
++-- through untouched; only the privileged columns are protected).
++-- ============================================================================
++
++create or replace function public.protect_profile_privileged_columns()
++returns trigger
++language plpgsql
++security definer set search_path = public
++as $$
++begin
++  if not public.is_admin(auth.uid()) then
++    new.role := old.role;
++    new.status := old.status;
++    new.reputation := old.reputation;
++  end if;
++  return new;
++end;
++$$;
++
++create trigger protect_profile_privileged_columns
++  before update on public.profiles
++  for each row execute function public.protect_profile_privileged_columns();

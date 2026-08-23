@@ -1,0 +1,1065 @@
+diff --git a/src/app/(main)/bookmarks/page.js b/src/app/(main)/bookmarks/page.js
+index dc7921d..44e6f11 100644
+--- a/src/app/(main)/bookmarks/page.js
++++ b/src/app/(main)/bookmarks/page.js
+@@ -3,46 +3,117 @@ import { Bookmark } from "lucide-react";
+ import { createClient } from "@/lib/supabase/server";
+ import { getCurrentUser } from "@/lib/supabase/current-user";
+ import { PostCard } from "@/components/post/PostCard";
++import { QuestionCard } from "@/components/post/QuestionCard";
++import { DiscussionCard } from "@/components/post/DiscussionCard";
++import { NewsCard } from "@/components/post/NewsCard";
++import { InterviewCard } from "@/components/post/InterviewCard";
+ import { EmptyState } from "@/components/ui/States";
+ 
+ export const metadata = { title: "المحفوظات" };
+ 
++async function bookmarkedIds(supabase, userId, contentType) {
++  const { data } = await supabase.from("bookmarks").select("content_id").eq("user_id", userId).eq("content_type", contentType);
++  return (data ?? []).map((b) => b.content_id);
++}
++
+ export default async function BookmarksPage() {
+   const { user } = await getCurrentUser();
+   if (!user) redirect("/login?next=/bookmarks");
+ 
+   const supabase = await createClient();
+-  const { data: bookmarkRows } = await supabase
+-    .from("bookmarks")
+-    .select("content_id")
+-    .eq("user_id", user.id)
+-    .eq("content_type", "post")
+-    .order("created_at", { ascending: false });
+-
+-  const postIds = (bookmarkRows ?? []).map((b) => b.content_id);
+-  let posts = [];
+-
+-  if (postIds.length) {
+-    const { data } = await supabase
+-      .from("posts")
+-      .select(
+-        `id, body, images, likes_count, comments_count, views_count, created_at,
+-         author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, reputation)`
+-      )
+-      .in("id", postIds)
+-      .eq("status", "approved");
+-    posts = (data ?? []).map((p) => ({ ...p, tags: [], liked: false, bookmarked: true }));
+-  }
++
++  const [postIds, questionIds, discussionIds, newsIds, interviewIds] = await Promise.all([
++    bookmarkedIds(supabase, user.id, "post"),
++    bookmarkedIds(supabase, user.id, "question"),
++    bookmarkedIds(supabase, user.id, "discussion"),
++    bookmarkedIds(supabase, user.id, "news"),
++    bookmarkedIds(supabase, user.id, "interview_experience"),
++  ]);
++
++  const [{ data: posts }, { data: questions }, { data: discussions }, { data: news }, { data: interviews }] = await Promise.all([
++    postIds.length
++      ? supabase
++          .from("posts")
++          .select(
++            `id, body, images, likes_count, comments_count, views_count, created_at,
++             author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, reputation)`
++          )
++          .in("id", postIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++    questionIds.length
++      ? supabase
++          .from("questions")
++          .select(
++            `id, title, body, accepted_answer_id, upvotes_count, downvotes_count, answers_count, views_count, created_at,
++             author:profiles!questions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
++          )
++          .in("id", questionIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++    discussionIds.length
++      ? supabase
++          .from("discussions")
++          .select(
++            `id, title, body, upvotes_count, downvotes_count, comments_count, views_count, created_at,
++             author:profiles!discussions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
++          )
++          .in("id", discussionIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++    newsIds.length
++      ? supabase
++          .from("news")
++          .select(
++            `id, title, summary, source_url, source_name, image_url, likes_count, comments_count, views_count, published_at,
++             submitter:profiles!news_submitted_by_fkey(id, username, full_name, avatar_url)`
++          )
++          .in("id", newsIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++    interviewIds.length
++      ? supabase
++          .from("interview_experiences")
++          .select(
++            `id, company, position, experience_level, difficulty, rounds, personal_experience, likes_count, comments_count, created_at,
++             author:profiles!interview_experiences_author_id_fkey(id, username, full_name, avatar_url)`
++          )
++          .in("id", interviewIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++  ]);
++
++  const postResults = (posts ?? []).map((p) => ({ ...p, tags: [], liked: false, bookmarked: true }));
++  const questionResults = (questions ?? []).map((q) => ({ ...q, tags: [] }));
++  const discussionResults = (discussions ?? []).map((d) => ({ ...d, tags: [] }));
++
++  const hasResults = postResults.length || questionResults.length || discussionResults.length || news?.length || interviews?.length;
+ 
+   return (
+     <div>
+       <h1 style={{ marginBottom: "var(--space-4)" }}>المحفوظات</h1>
+-      {posts.length === 0 ? (
++      {!hasResults ? (
+         <div className="card">
+-          <EmptyState icon={Bookmark} title="لا توجد عناصر محفوظة" description="احفظ المنشورات لتصل إليها لاحقًا بسهولة." />
++          <EmptyState icon={Bookmark} title="لا توجد عناصر محفوظة" description="احفظ أي محتوى لتصل إليه لاحقًا بسهولة." />
+         </div>
+       ) : (
+-        posts.map((post) => <PostCard key={post.id} post={post} isAuthenticated={!!user} />)
++        <>
++          {questionResults.map((q) => (
++            <QuestionCard key={q.id} question={q} />
++          ))}
++          {discussionResults.map((d) => (
++            <DiscussionCard key={d.id} discussion={d} />
++          ))}
++          {(news ?? []).map((item) => (
++            <NewsCard key={item.id} item={item} />
++          ))}
++          {(interviews ?? []).map((interview) => (
++            <InterviewCard key={interview.id} interview={interview} />
++          ))}
++          {postResults.map((post) => (
++            <PostCard key={post.id} post={post} isAuthenticated={!!user} />
++          ))}
++        </>
+       )}
+     </div>
+   );
+diff --git a/src/app/(main)/discussions/[id]/page.js b/src/app/(main)/discussions/[id]/page.js
+new file mode 100644
+index 0000000..fc78303
+--- /dev/null
++++ b/src/app/(main)/discussions/[id]/page.js
+@@ -0,0 +1,78 @@
++import { notFound } from "next/navigation";
++import Link from "next/link";
++import { Eye } from "lucide-react";
++import { createClient } from "@/lib/supabase/server";
++import { getCurrentUser } from "@/lib/supabase/current-user";
++import { getDiscussionById } from "@/lib/data/discussions";
++import { getComments } from "@/lib/data/comments";
++import { Avatar } from "@/components/ui/Avatar";
++import { TagList } from "@/components/ui/Tag";
++import { VoteButton } from "@/components/post/VoteButton";
++import { BookmarkButton } from "@/components/post/BookmarkButton";
++import { ShareButton } from "@/components/post/ShareButton";
++import { ReportDialog } from "@/components/post/ReportDialog";
++import { DiscussionFollowButton } from "@/components/post/DiscussionFollowButton";
++import { CommentSection } from "@/components/post/CommentSection";
++import { timeAgo, formatCount } from "@/lib/format";
++
++export async function generateMetadata({ params }) {
++  const supabase = await createClient();
++  const { discussion } = await getDiscussionById(supabase, params.id);
++  if (!discussion) return {};
++  return { title: discussion.title, description: discussion.body.slice(0, 160) };
++}
++
++export default async function DiscussionDetailPage({ params }) {
++  const supabase = await createClient();
++  const { user, profile } = await getCurrentUser();
++  const { discussion } = await getDiscussionById(supabase, params.id, { userId: user?.id });
++
++  if (!discussion) notFound();
++
++  const { comments } = await getComments(supabase, "discussion", params.id);
++
++  return (
++    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
++      <div className="card" style={{ display: "flex", gap: "var(--space-4)" }}>
++        <VoteButton
++          contentType="discussion"
++          contentId={discussion.id}
++          initialVote={discussion.userVote}
++          initialScore={discussion.upvotes_count - discussion.downvotes_count}
++          isAuthenticated={!!user}
++        />
++
++        <div style={{ flex: 1, minWidth: 0 }}>
++          <span className="content-type-label content-type-label--discussion">نقاش</span>
++          <h1 style={{ marginTop: 4 }}>{discussion.title}</h1>
++
++          <div className="post__header" style={{ marginTop: "var(--space-2)" }}>
++            <Link href={`/u/${discussion.author.username}`} className="post__author">
++              <Avatar src={discussion.author.avatar_url} name={discussion.author.full_name} size="sm" />
++              <span className="post__author-name">{discussion.author.full_name}</span>
++              <span className="post__author-username ltr">@{discussion.author.username}</span>
++            </Link>
++            <span className="post__meta">· {timeAgo(discussion.created_at)}</span>
++          </div>
++
++          <p className="post__body">{discussion.body}</p>
++
++          <TagList tags={discussion.tags} />
++
++          <div className="post__footer">
++            <span className="action-btn" style={{ cursor: "default" }}>
++              <Eye size={16} /> {formatCount(discussion.views_count)}
++            </span>
++            <ShareButton path={`/discussions/${discussion.id}`} />
++            <DiscussionFollowButton discussionId={discussion.id} initialFollowing={discussion.isFollowing} isAuthenticated={!!user} />
++            <span className="post__footer-spacer" />
++            <BookmarkButton contentType="discussion" contentId={discussion.id} initialBookmarked={discussion.bookmarked} isAuthenticated={!!user} />
++            <ReportDialog contentType="discussion" contentId={discussion.id} isAuthenticated={!!user} />
++          </div>
++        </div>
++      </div>
++
++      <CommentSection contentType="discussion" contentId={discussion.id} comments={comments} currentProfile={profile} />
++    </div>
++  );
++}
+diff --git a/src/app/(main)/discussions/new/NewDiscussionForm.js b/src/app/(main)/discussions/new/NewDiscussionForm.js
+new file mode 100644
+index 0000000..8e0eb6d
+--- /dev/null
++++ b/src/app/(main)/discussions/new/NewDiscussionForm.js
+@@ -0,0 +1,73 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { createClient } from "@/lib/supabase/client";
++import { attachTags } from "@/lib/tags";
++import { Field, Input, Textarea } from "@/components/ui/Field";
++import { Button } from "@/components/ui/Button";
++
++export function NewDiscussionForm({ userId }) {
++  const router = useRouter();
++  const [title, setTitle] = useState("");
++  const [body, setBody] = useState("");
++  const [tagsInput, setTagsInput] = useState("");
++  const [error, setError] = useState("");
++  const [submitting, setSubmitting] = useState(false);
++
++  async function handleSubmit(event) {
++    event.preventDefault();
++    if (title.trim().length < 5) {
++      setError("العنوان يجب أن يكون 5 أحرف على الأقل.");
++      return;
++    }
++    if (!body.trim()) {
++      setError("محتوى النقاش مطلوب.");
++      return;
++    }
++
++    setSubmitting(true);
++    setError("");
++    const supabase = createClient();
++
++    const { data: discussion, error: insertError } = await supabase
++      .from("discussions")
++      .insert({ author_id: userId, title: title.trim(), body: body.trim() })
++      .select("id")
++      .single();
++
++    if (insertError || !discussion) {
++      setError("تعذّر نشر النقاش، حاول مرة أخرى.");
++      setSubmitting(false);
++      return;
++    }
++
++    if (tagsInput.trim()) {
++      await attachTags(supabase, "discussion", discussion.id, tagsInput);
++    }
++
++    router.push(`/discussions/${discussion.id}`);
++  }
++
++  return (
++    <form className="auth-form card" onSubmit={handleSubmit} style={{ maxWidth: 640 }} noValidate>
++      <Field label="عنوان النقاش" htmlFor="title">
++        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="هل Frontend Developer محتاج يتعلم TypeScript في 2026؟" />
++      </Field>
++
++      <Field label="التفاصيل" htmlFor="body">
++        <Textarea id="body" rows={8} value={body} onChange={(e) => setBody(e.target.value)} />
++      </Field>
++
++      <Field label="الوسوم" htmlFor="tags" hint="افصل بينها بفاصلة">
++        <Input id="tags" className="ltr" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
++      </Field>
++
++      {error ? <span className="field__error">{error}</span> : null}
++
++      <Button type="submit" disabled={submitting}>
++        {submitting ? "جاري النشر..." : "نشر النقاش"}
++      </Button>
++    </form>
++  );
++}
+diff --git a/src/app/(main)/discussions/new/page.js b/src/app/(main)/discussions/new/page.js
+new file mode 100644
+index 0000000..6a36244
+--- /dev/null
++++ b/src/app/(main)/discussions/new/page.js
+@@ -0,0 +1,17 @@
++import { redirect } from "next/navigation";
++import { getCurrentUser } from "@/lib/supabase/current-user";
++import { NewDiscussionForm } from "./NewDiscussionForm";
++
++export const metadata = { title: "ابدأ نقاشًا" };
++
++export default async function NewDiscussionPage() {
++  const { user } = await getCurrentUser();
++  if (!user) redirect("/login?next=/discussions/new");
++
++  return (
++    <div>
++      <h1 style={{ marginBottom: "var(--space-4)" }}>ابدأ نقاشًا</h1>
++      <NewDiscussionForm userId={user.id} />
++    </div>
++  );
++}
+diff --git a/src/app/(main)/discussions/page.js b/src/app/(main)/discussions/page.js
+index 39b9372..648c596 100644
+--- a/src/app/(main)/discussions/page.js
++++ b/src/app/(main)/discussions/page.js
+@@ -1,12 +1,37 @@
+-import { ComingSoon } from "@/components/ui/ComingSoon";
++import Link from "next/link";
++import { MessagesSquare } from "lucide-react";
++import { createClient } from "@/lib/supabase/server";
++import { getCurrentUser } from "@/lib/supabase/current-user";
++import { getDiscussions } from "@/lib/data/discussions";
++import { DiscussionCard } from "@/components/post/DiscussionCard";
++import { EmptyState } from "@/components/ui/States";
++import { Button } from "@/components/ui/Button";
+ 
+ export const metadata = { title: "النقاشات" };
+ 
+-export default function DiscussionsPage() {
++export default async function DiscussionsPage() {
++  const supabase = await createClient();
++  const { user } = await getCurrentUser();
++  const { discussions } = await getDiscussions(supabase);
++
+   return (
+-    <ComingSoon
+-      title="النقاشات المفتوحة قيد الإنشاء"
+-      description="مساحة للنقاشات المفتوحة حول تقنيات JavaScript وقرارات الهندسة — قريبًا."
+-    />
++    <div>
++      <div style={{ display: "flex", alignItems: "center", marginBottom: "var(--space-4)" }}>
++        <h1>النقاشات</h1>
++        <span style={{ marginInlineStart: "auto" }}>
++          <Link href={user ? "/discussions/new" : "/login?next=/discussions/new"}>
++            <Button size="sm">ابدأ نقاشًا</Button>
++          </Link>
++        </span>
++      </div>
++
++      {discussions.length === 0 ? (
++        <div className="card">
++          <EmptyState icon={MessagesSquare} title="لا توجد نقاشات بعد" description="ابدأ نقاشًا مفتوحًا حول تقنية أو قرار هندسي." />
++        </div>
++      ) : (
++        discussions.map((d) => <DiscussionCard key={d.id} discussion={d} />)
++      )}
++    </div>
+   );
+ }
+diff --git a/src/app/(main)/layout.js b/src/app/(main)/layout.js
+index fb99de4..cd6076e 100644
+--- a/src/app/(main)/layout.js
++++ b/src/app/(main)/layout.js
+@@ -13,6 +13,13 @@ export default async function MainLayout({ children }) {
+   return (
+     <div className="app-shell">
+       <Navbar profile={profile} />
++      {profile && profile.status !== "active" ? (
++        <div className="status-banner">
++          {profile.status === "banned"
++            ? "تم حظر حسابك. لا يمكنك النشر أو التعليق أو التصويت. تواصل مع فريق الإشراف إذا كنت تعتقد أن هذا خطأ."
++            : "تم إيقاف حسابك مؤقتًا. لا يمكنك النشر أو التعليق أو التصويت حتى تتم إعادة تفعيله."}
++        </div>
++      ) : null}
+       <main className="app-main">
+         <div>{children}</div>
+         <aside className="app-main__sidebar">
+diff --git a/src/app/(main)/notifications/NotificationsList.js b/src/app/(main)/notifications/NotificationsList.js
+index 113b8d2..9812e3b 100644
+--- a/src/app/(main)/notifications/NotificationsList.js
++++ b/src/app/(main)/notifications/NotificationsList.js
+@@ -2,7 +2,7 @@
+ 
+ import { useEffect, useState } from "react";
+ import Link from "next/link";
+-import { Bell, Heart, UserPlus, MessageCircle, CheckCircle2 } from "lucide-react";
++import { Bell, Heart, UserPlus, MessageCircle, CheckCircle2, AtSign, Newspaper, Briefcase } from "lucide-react";
+ import { createClient } from "@/lib/supabase/client";
+ import { EmptyState } from "@/components/ui/States";
+ import { timeAgo } from "@/lib/format";
+@@ -11,6 +11,10 @@ const ICONS = {
+   new_follower: UserPlus,
+   question_answered: MessageCircle,
+   answer_accepted: CheckCircle2,
++  new_comment: MessageCircle,
++  mention: AtSign,
++  news_approved: Newspaper,
++  interview_approved: Briefcase,
+   like: Heart,
+ };
+ 
+@@ -18,6 +22,9 @@ function targetHref(notification) {
+   if (notification.content_type === "post") return `/posts/${notification.content_id}`;
+   if (notification.content_type === "question") return `/questions/${notification.content_id}`;
+   if (notification.content_type === "answer") return `/questions`;
++  if (notification.content_type === "discussion") return `/discussions/${notification.content_id}`;
++  if (notification.content_type === "news") return `/news/${notification.content_id}`;
++  if (notification.content_type === "interview_experience") return `/interviews/${notification.content_id}`;
+   return "#";
+ }
+ 
+diff --git a/src/app/(main)/search/page.js b/src/app/(main)/search/page.js
+index 6fde0f2..46dbbc6 100644
+--- a/src/app/(main)/search/page.js
++++ b/src/app/(main)/search/page.js
+@@ -1,13 +1,28 @@
++import Link from "next/link";
+ import { Search as SearchIcon } from "lucide-react";
+ import { createClient } from "@/lib/supabase/server";
+ import { getCurrentUser } from "@/lib/supabase/current-user";
+ import { Avatar } from "@/components/ui/Avatar";
+ import { PostCard } from "@/components/post/PostCard";
++import { QuestionCard } from "@/components/post/QuestionCard";
++import { DiscussionCard } from "@/components/post/DiscussionCard";
++import { NewsCard } from "@/components/post/NewsCard";
++import { InterviewCard } from "@/components/post/InterviewCard";
+ import { EmptyState } from "@/components/ui/States";
+-import Link from "next/link";
+ 
+ export const metadata = { title: "البحث" };
+ 
++const POST_FIELDS = `id, body, images, likes_count, comments_count, views_count, created_at,
++  author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, reputation)`;
++const QUESTION_FIELDS = `id, title, body, accepted_answer_id, upvotes_count, downvotes_count, answers_count, views_count, created_at,
++  author:profiles!questions_author_id_fkey(id, username, full_name, avatar_url, reputation)`;
++const DISCUSSION_FIELDS = `id, title, body, upvotes_count, downvotes_count, comments_count, views_count, created_at,
++  author:profiles!discussions_author_id_fkey(id, username, full_name, avatar_url, reputation)`;
++const NEWS_FIELDS = `id, title, summary, source_url, source_name, image_url, likes_count, comments_count, views_count, published_at,
++  submitter:profiles!news_submitted_by_fkey(id, username, full_name, avatar_url)`;
++const INTERVIEW_FIELDS = `id, company, position, experience_level, difficulty, rounds, personal_experience, likes_count, comments_count, created_at,
++  author:profiles!interview_experiences_author_id_fkey(id, username, full_name, avatar_url)`;
++
+ export default async function SearchPage({ searchParams }) {
+   const query = (searchParams?.q || "").trim();
+   const { user } = await getCurrentUser();
+@@ -16,27 +31,39 @@ export default async function SearchPage({ searchParams }) {
+   if (!query) {
+     return (
+       <div className="card">
+-        <EmptyState icon={SearchIcon} title="ابحث في المجتمع" description="اكتب كلمة للبحث عن منشورات، مطورين، أو وسوم." />
++        <EmptyState
++          icon={SearchIcon}
++          title="ابحث في المجتمع"
++          description="اكتب كلمة للبحث عن منشورات، أسئلة، نقاشات، أخبار، تجارب انترفيو، مطورين، أو وسوم."
++        />
+       </div>
+     );
+   }
+ 
+-  const [{ data: posts }, { data: profiles }, { data: tags }] = await Promise.all([
+-    supabase
+-      .from("posts")
+-      .select(
+-        `id, body, images, likes_count, comments_count, views_count, created_at,
+-         author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, reputation)`
+-      )
+-      .eq("status", "approved")
+-      .ilike("body", `%${query}%`)
+-      .limit(20),
+-    supabase.from("profiles").select("id, username, full_name, avatar_url").or(`username.ilike.%${query}%,full_name.ilike.%${query}%`).limit(10),
+-    supabase.from("tags").select("id, name, slug").ilike("name", `%${query}%`).limit(10),
+-  ]);
+-
+-  const results = (posts ?? []).map((p) => ({ ...p, tags: [], liked: false, bookmarked: false }));
+-  const hasResults = results.length || profiles?.length || tags?.length;
++  const like = `%${query}%`;
++
++  const [{ data: posts }, { data: questions }, { data: discussions }, { data: news }, { data: interviews }, { data: profiles }, { data: tags }] =
++    await Promise.all([
++      supabase.from("posts").select(POST_FIELDS).eq("status", "approved").ilike("body", like).limit(10),
++      supabase.from("questions").select(QUESTION_FIELDS).eq("status", "approved").or(`title.ilike.${like},body.ilike.${like}`).limit(10),
++      supabase.from("discussions").select(DISCUSSION_FIELDS).eq("status", "approved").or(`title.ilike.${like},body.ilike.${like}`).limit(10),
++      supabase.from("news").select(NEWS_FIELDS).eq("status", "approved").or(`title.ilike.${like},summary.ilike.${like}`).limit(10),
++      supabase
++        .from("interview_experiences")
++        .select(INTERVIEW_FIELDS)
++        .eq("status", "approved")
++        .or(`company.ilike.${like},position.ilike.${like}`)
++        .limit(10),
++      supabase.from("profiles").select("id, username, full_name, avatar_url").or(`username.ilike.${like},full_name.ilike.${like}`).limit(10),
++      supabase.from("tags").select("id, name, slug").ilike("name", like).limit(10),
++    ]);
++
++  const postResults = (posts ?? []).map((p) => ({ ...p, tags: [], liked: false, bookmarked: false }));
++  const questionResults = (questions ?? []).map((q) => ({ ...q, tags: [] }));
++  const discussionResults = (discussions ?? []).map((d) => ({ ...d, tags: [] }));
++
++  const hasResults =
++    postResults.length || questionResults.length || discussionResults.length || news?.length || interviews?.length || profiles?.length || tags?.length;
+ 
+   return (
+     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+@@ -78,10 +105,46 @@ export default async function SearchPage({ searchParams }) {
+             </section>
+           ) : null}
+ 
+-          {results.length ? (
++          {questionResults.length ? (
++            <section>
++              <h3 style={{ marginBottom: "var(--space-2)" }}>الأسئلة</h3>
++              {questionResults.map((q) => (
++                <QuestionCard key={q.id} question={q} />
++              ))}
++            </section>
++          ) : null}
++
++          {discussionResults.length ? (
++            <section>
++              <h3 style={{ marginBottom: "var(--space-2)" }}>النقاشات</h3>
++              {discussionResults.map((d) => (
++                <DiscussionCard key={d.id} discussion={d} />
++              ))}
++            </section>
++          ) : null}
++
++          {news?.length ? (
++            <section>
++              <h3 style={{ marginBottom: "var(--space-2)" }}>الأخبار</h3>
++              {news.map((item) => (
++                <NewsCard key={item.id} item={item} />
++              ))}
++            </section>
++          ) : null}
++
++          {interviews?.length ? (
++            <section>
++              <h3 style={{ marginBottom: "var(--space-2)" }}>تجارب الانترفيو</h3>
++              {interviews.map((interview) => (
++                <InterviewCard key={interview.id} interview={interview} />
++              ))}
++            </section>
++          ) : null}
++
++          {postResults.length ? (
+             <section>
+               <h3 style={{ marginBottom: "var(--space-2)" }}>المنشورات</h3>
+-              {results.map((post) => (
++              {postResults.map((post) => (
+                 <PostCard key={post.id} post={post} isAuthenticated={!!user} />
+               ))}
+             </section>
+diff --git a/src/app/(main)/tags/[slug]/page.js b/src/app/(main)/tags/[slug]/page.js
+index 9adb6d6..0d349f8 100644
+--- a/src/app/(main)/tags/[slug]/page.js
++++ b/src/app/(main)/tags/[slug]/page.js
+@@ -1,14 +1,23 @@
+ import { notFound } from "next/navigation";
+-import { MessageSquareText } from "lucide-react";
++import { Hash } from "lucide-react";
+ import { createClient } from "@/lib/supabase/server";
+ import { getCurrentUser } from "@/lib/supabase/current-user";
+ import { PostCard } from "@/components/post/PostCard";
++import { QuestionCard } from "@/components/post/QuestionCard";
++import { DiscussionCard } from "@/components/post/DiscussionCard";
++import { NewsCard } from "@/components/post/NewsCard";
++import { InterviewCard } from "@/components/post/InterviewCard";
+ import { EmptyState } from "@/components/ui/States";
+ 
+ export async function generateMetadata({ params }) {
+   return { title: `وسم: ${params.slug}` };
+ }
+ 
++async function taggedIds(supabase, tagId, contentType) {
++  const { data } = await supabase.from("content_tags").select("content_id").eq("content_type", contentType).eq("tag_id", tagId);
++  return (data ?? []).map((r) => r.content_id);
++}
++
+ export default async function TagPage({ params }) {
+   const supabase = await createClient();
+   const { user } = await getCurrentUser();
+@@ -16,39 +25,101 @@ export default async function TagPage({ params }) {
+   const { data: tag } = await supabase.from("tags").select("id, name, slug").eq("slug", params.slug).maybeSingle();
+   if (!tag) notFound();
+ 
+-  const { data: taggedRows } = await supabase
+-    .from("content_tags")
+-    .select("content_id")
+-    .eq("content_type", "post")
+-    .eq("tag_id", tag.id);
+-
+-  const postIds = (taggedRows ?? []).map((r) => r.content_id);
+-  let posts = [];
+-
+-  if (postIds.length) {
+-    const { data } = await supabase
+-      .from("posts")
+-      .select(
+-        `id, body, images, likes_count, comments_count, views_count, created_at,
+-         author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, reputation)`
+-      )
+-      .in("id", postIds)
+-      .eq("status", "approved")
+-      .order("created_at", { ascending: false });
+-    posts = (data ?? []).map((p) => ({ ...p, tags: [tag], liked: false, bookmarked: false }));
+-  }
++  const [postIds, questionIds, discussionIds, newsIds, interviewIds] = await Promise.all([
++    taggedIds(supabase, tag.id, "post"),
++    taggedIds(supabase, tag.id, "question"),
++    taggedIds(supabase, tag.id, "discussion"),
++    taggedIds(supabase, tag.id, "news"),
++    taggedIds(supabase, tag.id, "interview_experience"),
++  ]);
++
++  const [{ data: posts }, { data: questions }, { data: discussions }, { data: news }, { data: interviews }] = await Promise.all([
++    postIds.length
++      ? supabase
++          .from("posts")
++          .select(
++            `id, body, images, likes_count, comments_count, views_count, created_at,
++             author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url, reputation)`
++          )
++          .in("id", postIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++    questionIds.length
++      ? supabase
++          .from("questions")
++          .select(
++            `id, title, body, accepted_answer_id, upvotes_count, downvotes_count, answers_count, views_count, created_at,
++             author:profiles!questions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
++          )
++          .in("id", questionIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++    discussionIds.length
++      ? supabase
++          .from("discussions")
++          .select(
++            `id, title, body, upvotes_count, downvotes_count, comments_count, views_count, created_at,
++             author:profiles!discussions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
++          )
++          .in("id", discussionIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++    newsIds.length
++      ? supabase
++          .from("news")
++          .select(
++            `id, title, summary, source_url, source_name, image_url, likes_count, comments_count, views_count, published_at,
++             submitter:profiles!news_submitted_by_fkey(id, username, full_name, avatar_url)`
++          )
++          .in("id", newsIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++    interviewIds.length
++      ? supabase
++          .from("interview_experiences")
++          .select(
++            `id, company, position, experience_level, difficulty, rounds, personal_experience, likes_count, comments_count, created_at,
++             author:profiles!interview_experiences_author_id_fkey(id, username, full_name, avatar_url)`
++          )
++          .in("id", interviewIds)
++          .eq("status", "approved")
++      : Promise.resolve({ data: [] }),
++  ]);
++
++  const postResults = (posts ?? []).map((p) => ({ ...p, tags: [tag], liked: false, bookmarked: false }));
++  const questionResults = (questions ?? []).map((q) => ({ ...q, tags: [tag] }));
++  const discussionResults = (discussions ?? []).map((d) => ({ ...d, tags: [tag] }));
++
++  const hasResults = postResults.length || questionResults.length || discussionResults.length || news?.length || interviews?.length;
+ 
+   return (
+     <div>
+-      <h1 style={{ marginBottom: "var(--space-4)" }}>
+-        <span className="content-type-label content-type-label--question">#</span> {tag.name}
++      <h1 style={{ marginBottom: "var(--space-4)", display: "flex", alignItems: "center", gap: 6 }}>
++        <Hash size={22} style={{ color: "var(--color-text-muted)" }} /> {tag.name}
+       </h1>
+-      {posts.length === 0 ? (
++
++      {!hasResults ? (
+         <div className="card">
+-          <EmptyState icon={MessageSquareText} title="لا يوجد محتوى بهذا الوسم بعد" />
++          <EmptyState icon={Hash} title="لا يوجد محتوى بهذا الوسم بعد" />
+         </div>
+       ) : (
+-        posts.map((post) => <PostCard key={post.id} post={post} isAuthenticated={!!user} />)
++        <>
++          {questionResults.map((q) => (
++            <QuestionCard key={q.id} question={q} />
++          ))}
++          {discussionResults.map((d) => (
++            <DiscussionCard key={d.id} discussion={d} />
++          ))}
++          {(news ?? []).map((item) => (
++            <NewsCard key={item.id} item={item} />
++          ))}
++          {(interviews ?? []).map((interview) => (
++            <InterviewCard key={interview.id} interview={interview} />
++          ))}
++          {postResults.map((post) => (
++            <PostCard key={post.id} post={post} isAuthenticated={!!user} />
++          ))}
++        </>
+       )}
+     </div>
+   );
+diff --git a/src/app/sitemap.js b/src/app/sitemap.js
+index b3210a2..629d782 100644
+--- a/src/app/sitemap.js
++++ b/src/app/sitemap.js
+@@ -4,20 +4,38 @@ export default async function sitemap() {
+   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+   const supabase = await createClient();
+ 
+-  const [{ data: posts }, { data: profiles }, { data: tags }] = await Promise.all([
+-    supabase.from("posts").select("id, updated_at").eq("status", "approved").limit(1000),
+-    supabase.from("profiles").select("username, updated_at").limit(1000),
+-    supabase.from("tags").select("slug").limit(1000),
+-  ]);
++  const [{ data: posts }, { data: questions }, { data: discussions }, { data: news }, { data: interviews }, { data: profiles }, { data: tags }] =
++    await Promise.all([
++      supabase.from("posts").select("id, updated_at").eq("status", "approved").limit(1000),
++      supabase.from("questions").select("id, updated_at").eq("status", "approved").limit(1000),
++      supabase.from("discussions").select("id, updated_at").eq("status", "approved").limit(1000),
++      supabase.from("news").select("id, updated_at").eq("status", "approved").limit(1000),
++      supabase.from("interview_experiences").select("id, updated_at").eq("status", "approved").limit(1000),
++      supabase.from("profiles").select("username, updated_at").limit(1000),
++      supabase.from("tags").select("slug").limit(1000),
++    ]);
+ 
+-  const staticRoutes = ["", "/news", "/questions", "/discussions", "/interviews", "/tags", "/users"].map((path) => ({
++  const staticRoutes = ["", "/news", "/questions", "/discussions", "/interviews", "/tags", "/users", "/leaderboard"].map((path) => ({
+     url: `${siteUrl}${path}`,
+     lastModified: new Date(),
+   }));
+ 
+   const postRoutes = (posts ?? []).map((p) => ({ url: `${siteUrl}/posts/${p.id}`, lastModified: p.updated_at }));
++  const questionRoutes = (questions ?? []).map((q) => ({ url: `${siteUrl}/questions/${q.id}`, lastModified: q.updated_at }));
++  const discussionRoutes = (discussions ?? []).map((d) => ({ url: `${siteUrl}/discussions/${d.id}`, lastModified: d.updated_at }));
++  const newsRoutes = (news ?? []).map((n) => ({ url: `${siteUrl}/news/${n.id}`, lastModified: n.updated_at }));
++  const interviewRoutes = (interviews ?? []).map((i) => ({ url: `${siteUrl}/interviews/${i.id}`, lastModified: i.updated_at }));
+   const profileRoutes = (profiles ?? []).map((p) => ({ url: `${siteUrl}/u/${p.username}`, lastModified: p.updated_at }));
+   const tagRoutes = (tags ?? []).map((t) => ({ url: `${siteUrl}/tags/${t.slug}` }));
+ 
+-  return [...staticRoutes, ...postRoutes, ...profileRoutes, ...tagRoutes];
++  return [
++    ...staticRoutes,
++    ...postRoutes,
++    ...questionRoutes,
++    ...discussionRoutes,
++    ...newsRoutes,
++    ...interviewRoutes,
++    ...profileRoutes,
++    ...tagRoutes,
++  ];
+ }
+diff --git a/src/components/post/DiscussionCard.js b/src/components/post/DiscussionCard.js
+new file mode 100644
+index 0000000..f04f554
+--- /dev/null
++++ b/src/components/post/DiscussionCard.js
+@@ -0,0 +1,46 @@
++import Link from "next/link";
++import { MessageCircle } from "lucide-react";
++import { Avatar } from "@/components/ui/Avatar";
++import { TagList } from "@/components/ui/Tag";
++import { timeAgo, formatCount } from "@/lib/format";
++
++export function DiscussionCard({ discussion }) {
++  const score = discussion.upvotes_count - discussion.downvotes_count;
++
++  return (
++    <article className="post">
++      <div style={{ display: "flex", gap: "var(--space-4)" }}>
++        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 48, color: "var(--color-text-muted)" }}>
++          <span style={{ fontWeight: "var(--weight-semibold)", fontSize: "var(--text-md)", color: "var(--color-text)" }}>{score}</span>
++          <span style={{ fontSize: "var(--text-xs)" }}>صوت</span>
++        </div>
++
++        <div style={{ flex: 1, minWidth: 0 }}>
++          <span className="content-type-label content-type-label--discussion">نقاش</span>
++          <Link href={`/discussions/${discussion.id}`}>
++            <h3 className="post__title" style={{ marginTop: 4 }}>
++              {discussion.title}
++            </h3>
++          </Link>
++          <p className="post__body" style={{ WebkitLineClamp: 2, display: "-webkit-box", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
++            {discussion.body}
++          </p>
++
++          <TagList tags={discussion.tags} />
++
++          <div className="post__header" style={{ marginTop: "var(--space-2)", marginBottom: 0 }}>
++            <Link href={`/u/${discussion.author.username}`} className="post__author">
++              <Avatar src={discussion.author.avatar_url} name={discussion.author.full_name} size="xs" />
++              <span className="post__author-username ltr">@{discussion.author.username}</span>
++            </Link>
++            <span className="post__meta">· {timeAgo(discussion.created_at)}</span>
++            <span className="post__footer-spacer" />
++            <span className="action-btn" style={{ cursor: "default" }}>
++              <MessageCircle size={14} /> {formatCount(discussion.comments_count)}
++            </span>
++          </div>
++        </div>
++      </div>
++    </article>
++  );
++}
+diff --git a/src/components/post/DiscussionFollowButton.js b/src/components/post/DiscussionFollowButton.js
+new file mode 100644
+index 0000000..7dace21
+--- /dev/null
++++ b/src/components/post/DiscussionFollowButton.js
+@@ -0,0 +1,38 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { Bell, BellOff } from "lucide-react";
++import { createClient } from "@/lib/supabase/client";
++
++export function DiscussionFollowButton({ discussionId, initialFollowing, isAuthenticated }) {
++  const router = useRouter();
++  const [following, setFollowing] = useState(initialFollowing);
++
++  async function handleClick() {
++    if (!isAuthenticated) {
++      router.push("/login");
++      return;
++    }
++
++    const supabase = createClient();
++    const {
++      data: { user },
++    } = await supabase.auth.getUser();
++
++    if (following) {
++      const { error } = await supabase.from("discussion_follows").delete().eq("discussion_id", discussionId).eq("user_id", user.id);
++      if (!error) setFollowing(false);
++    } else {
++      const { error } = await supabase.from("discussion_follows").insert({ discussion_id: discussionId, user_id: user.id });
++      if (!error) setFollowing(true);
++    }
++  }
++
++  return (
++    <button type="button" className="action-btn" data-active={following} onClick={handleClick}>
++      {following ? <Bell size={16} fill="currentColor" /> : <BellOff size={16} />}
++      {following ? "متابَع" : "تابع النقاش"}
++    </button>
++  );
++}
+diff --git a/src/lib/data/discussions.js b/src/lib/data/discussions.js
+new file mode 100644
+index 0000000..5809544
+--- /dev/null
++++ b/src/lib/data/discussions.js
+@@ -0,0 +1,65 @@
++export async function getDiscussions(supabase, { limit = 30 } = {}) {
++  const { data: discussions, error } = await supabase
++    .from("discussions")
++    .select(
++      `id, title, body, upvotes_count, downvotes_count, comments_count, views_count, created_at,
++       author:profiles!discussions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
++    )
++    .eq("status", "approved")
++    .order("created_at", { ascending: false })
++    .limit(limit);
++
++  if (error || !discussions?.length) return { discussions: [], error };
++
++  const ids = discussions.map((d) => d.id);
++  const { data: tagRows } = await supabase
++    .from("content_tags")
++    .select("content_id, tag:tags(id, name, slug)")
++    .eq("content_type", "discussion")
++    .in("content_id", ids);
++
++  const tagsById = new Map();
++  for (const row of tagRows ?? []) {
++    if (!tagsById.has(row.content_id)) tagsById.set(row.content_id, []);
++    tagsById.get(row.content_id).push(row.tag);
++  }
++
++  return { discussions: discussions.map((d) => ({ ...d, tags: tagsById.get(d.id) ?? [] })), error: null };
++}
++
++export async function getDiscussionById(supabase, id, { userId } = {}) {
++  const { data: discussion, error } = await supabase
++    .from("discussions")
++    .select(
++      `id, title, body, author_id, upvotes_count, downvotes_count, comments_count, views_count, created_at,
++       author:profiles!discussions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
++    )
++    .eq("id", id)
++    .maybeSingle();
++
++  if (error || !discussion) return { discussion: null, error };
++
++  const [{ data: tagRows }, { data: userVote }, { data: following }, { data: bookmark }] = await Promise.all([
++    supabase.from("content_tags").select("tag:tags(id, name, slug)").eq("content_type", "discussion").eq("content_id", id),
++    userId
++      ? supabase.from("votes").select("value").eq("content_type", "discussion").eq("content_id", id).eq("user_id", userId).maybeSingle()
++      : Promise.resolve({ data: null }),
++    userId
++      ? supabase.from("discussion_follows").select("user_id").eq("discussion_id", id).eq("user_id", userId).maybeSingle()
++      : Promise.resolve({ data: null }),
++    userId
++      ? supabase.from("bookmarks").select("id").eq("user_id", userId).eq("content_type", "discussion").eq("content_id", id).maybeSingle()
++      : Promise.resolve({ data: null }),
++  ]);
++
++  return {
++    discussion: {
++      ...discussion,
++      tags: (tagRows ?? []).map((r) => r.tag),
++      userVote: userVote?.value ?? null,
++      isFollowing: !!following,
++      bookmarked: !!bookmark,
++    },
++    error: null,
++  };
++}
+diff --git a/src/styles/components.css b/src/styles/components.css
+index dec49a8..c4177ec 100644
+--- a/src/styles/components.css
++++ b/src/styles/components.css
+@@ -125,6 +125,15 @@
+   }
+ }
+ 
++.status-banner {
++  background: var(--color-danger-subtle);
++  color: var(--color-danger);
++  padding: var(--space-3) var(--space-4);
++  font-size: var(--text-sm);
++  text-align: center;
++  border-bottom: 1px solid var(--color-border);
++}
++
+ /* --- Nav links -------------------------------------------------------------- */
+ 
+ .nav-link {
+diff --git a/supabase/migrations/0013_enforce_account_status.sql b/supabase/migrations/0013_enforce_account_status.sql
+new file mode 100644
+index 0000000..0f2ef5a
+--- /dev/null
++++ b/supabase/migrations/0013_enforce_account_status.sql
+@@ -0,0 +1,35 @@
++-- ============================================================================
++-- Suspend/ban was, until now, purely cosmetic: admins could flip
++-- profiles.status, but nothing stopped a suspended/banned account from
++-- still posting, answering, commenting, or voting — RLS insert policies
++-- only ever checked "is this your own row", never account status. This
++-- closes that with a single reusable BEFORE INSERT trigger.
++-- ============================================================================
++
++create or replace function public.check_author_active()
++returns trigger
++language plpgsql
++security definer set search_path = public
++as $$
++declare
++  actor_status account_status;
++begin
++  select status into actor_status from public.profiles where id = auth.uid();
++
++  if actor_status is distinct from 'active' then
++    raise exception 'Account is % and cannot perform this action', actor_status
++      using errcode = '42501';
++  end if;
++
++  return new;
++end;
++$$;
++
++create trigger check_author_active before insert on public.posts for each row execute function public.check_author_active();
++create trigger check_author_active before insert on public.comments for each row execute function public.check_author_active();
++create trigger check_author_active before insert on public.questions for each row execute function public.check_author_active();
++create trigger check_author_active before insert on public.answers for each row execute function public.check_author_active();
++create trigger check_author_active before insert on public.discussions for each row execute function public.check_author_active();
++create trigger check_author_active before insert on public.news for each row execute function public.check_author_active();
++create trigger check_author_active before insert on public.interview_experiences for each row execute function public.check_author_active();
++create trigger check_author_active before insert on public.votes for each row execute function public.check_author_active();
+diff --git a/supabase/migrations/0014_comment_notifications_and_mentions.sql b/supabase/migrations/0014_comment_notifications_and_mentions.sql
+new file mode 100644
+index 0000000..ad9cf20
+--- /dev/null
++++ b/supabase/migrations/0014_comment_notifications_and_mentions.sql
+@@ -0,0 +1,52 @@
++-- ============================================================================
++-- Two notification behaviors that were missing for comments:
++--   1. The content owner (post author, discussion author, news submitter,
++--      interview author) gets notified when someone comments on their
++--      content — mirrors the existing "question answered" notification.
++--   2. Any @username mentioned in a comment's body gets a "mention"
++--      notification, per spec section 15 ("Someone mentioned you").
++-- Both skip notifying the comment's own author.
++-- ============================================================================
++
++create or replace function public.handle_new_comment_notify()
++returns trigger
++language plpgsql
++security definer set search_path = public
++as $$
++declare
++  owner_id uuid;
++  mentioned_username text;
++  mentioned_user_id uuid;
++begin
++  if new.content_type = 'post' then
++    select author_id into owner_id from public.posts where id = new.content_id;
++  elsif new.content_type = 'discussion' then
++    select author_id into owner_id from public.discussions where id = new.content_id;
++  elsif new.content_type = 'news' then
++    select submitted_by into owner_id from public.news where id = new.content_id;
++  elsif new.content_type = 'interview_experience' then
++    select author_id into owner_id from public.interview_experiences where id = new.content_id;
++  end if;
++
++  if owner_id is not null and owner_id <> new.author_id then
++    insert into public.notifications (user_id, type, actor_id, content_type, content_id, message)
++    values (owner_id, 'new_comment', new.author_id, new.content_type, new.content_id, 'علّق على المحتوى الخاص بك');
++  end if;
++
++  for mentioned_username in
++    select distinct m[1] from regexp_matches(new.body, '@([a-zA-Z0-9_]{3,30})', 'g') as m
++  loop
++    select id into mentioned_user_id from public.profiles where username = mentioned_username;
++    if mentioned_user_id is not null and mentioned_user_id <> new.author_id then
++      insert into public.notifications (user_id, type, actor_id, content_type, content_id, message)
++      values (mentioned_user_id, 'mention', new.author_id, new.content_type, new.content_id, 'أشار إليك في تعليق');
++    end if;
++  end loop;
++
++  return new;
++end;
++$$;
++
++create trigger on_new_comment_notify
++  after insert on public.comments
++  for each row execute function public.handle_new_comment_notify();
