@@ -104,6 +104,18 @@ const DEMO_USERS = [
   },
 ];
 
+async function findAuthUserByEmail(email) {
+  // No direct "get by email" admin API — page through the user list.
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw new Error(`listUsers failed: ${error.message}`);
+    const match = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    if (match) return match;
+    if (data.users.length < 200) break;
+  }
+  return null;
+}
+
 async function ensureUser(demo) {
   const { data: existing } = await supabase.from("profiles").select("id").eq("username", demo.username).maybeSingle();
   if (existing) {
@@ -111,6 +123,7 @@ async function ensureUser(demo) {
     return existing.id;
   }
 
+  let userId;
   const { data: created, error } = await supabase.auth.admin.createUser({
     email: demo.email,
     email_confirm: true,
@@ -118,27 +131,39 @@ async function ensureUser(demo) {
     user_metadata: { full_name: demo.full_name, username: demo.username },
   });
 
-  if (error) {
-    throw new Error(`Failed to create ${demo.username}: ${error.message}`);
+  if (created?.user) {
+    userId = created.user.id;
+  } else if (error && /already|registered|exists/i.test(error.message)) {
+    // A previous run created the auth account but not (or partially) the
+    // profile — reuse the existing account instead of aborting.
+    const found = await findAuthUserByEmail(demo.email);
+    if (!found) throw new Error(`${demo.username}: createUser says the email exists but it isn't in listUsers`);
+    userId = found.id;
+    console.log(`↺ reusing existing auth account for ${demo.username}`);
+  } else {
+    throw new Error(`Failed to create ${demo.username}: ${error?.message ?? "unknown error"}`);
   }
 
-  const userId = created.user.id;
-
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({
+  // The handle_new_user trigger normally inserts the profile row on signup.
+  // upsert covers the case where that row is missing after a botched run.
+  const { error: upsertError } = await supabase.from("profiles").upsert(
+    {
+      id: userId,
+      username: demo.username,
+      full_name: demo.full_name,
       bio: demo.bio,
       location: demo.location,
       skills: demo.skills,
       onboarding_completed: true,
-    })
-    .eq("id", userId);
+    },
+    { onConflict: "id" }
+  );
 
-  if (updateError) {
-    throw new Error(`Failed to update profile for ${demo.username}: ${updateError.message}`);
+  if (upsertError) {
+    throw new Error(`Failed to write profile for ${demo.username}: ${upsertError.message}`);
   }
 
-  console.log(`+ created user ${demo.username}`);
+  console.log(`+ user ${demo.username} ready`);
   return userId;
 }
 
@@ -183,127 +208,159 @@ async function tagContent(contentType, contentId, tagSlugs) {
   }
 }
 
-async function ensurePost(authorId, body, tagSlugs = [], daysAgo = 0) {
-  const { data: existing } = await supabase.from("posts").select("id").eq("author_id", authorId).eq("body", body).maybeSingle();
-  if (existing) return existing.id;
+// One failing insert shouldn't abort the whole seed — log it and move on.
+async function safeInsert(label, authorId, run) {
+  if (!authorId) {
+    console.error(`  ! ${label}: skipped (missing author id — a user failed to seed)`);
+    return null;
+  }
+  try {
+    return await run();
+  } catch (e) {
+    console.error(`  ! ${label}: ${e.message}`);
+    return null;
+  }
+}
 
-  const { data: post, error } = await supabase
-    .from("posts")
-    .insert({ author_id: authorId, body, created_at: daysAgoISO(daysAgo) })
-    .select("id")
-    .single();
-  if (error) throw new Error(`Failed to insert post: ${error.message}`);
-  await tagContent("post", post.id, tagSlugs);
-  console.log(`+ post: ${body.slice(0, 48).replace(/\n/g, " ")}...`);
-  return post.id;
+async function ensurePost(authorId, body, tagSlugs = [], daysAgo = 0) {
+  return safeInsert(`post "${body.slice(0, 32).replace(/\n/g, " ")}…"`, authorId, async () => {
+    const { data: existing } = await supabase.from("posts").select("id").eq("author_id", authorId).eq("body", body).maybeSingle();
+    if (existing) return existing.id;
+
+    const { data: post, error } = await supabase
+      .from("posts")
+      .insert({ author_id: authorId, body, created_at: daysAgoISO(daysAgo) })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    await tagContent("post", post.id, tagSlugs);
+    console.log(`+ post: ${body.slice(0, 48).replace(/\n/g, " ")}...`);
+    return post.id;
+  });
 }
 
 async function ensureQuestion(authorId, title, body, tagSlugs = [], daysAgo = 0) {
-  const { data: existing } = await supabase.from("questions").select("id").eq("title", title).maybeSingle();
-  if (existing) return existing.id;
+  return safeInsert(`question "${title}"`, authorId, async () => {
+    const { data: existing } = await supabase.from("questions").select("id").eq("title", title).maybeSingle();
+    if (existing) return existing.id;
 
-  const { data: question, error } = await supabase
-    .from("questions")
-    .insert({ author_id: authorId, title, body, created_at: daysAgoISO(daysAgo) })
-    .select("id")
-    .single();
-  if (error) throw new Error(`Failed to insert question: ${error.message}`);
-  await tagContent("question", question.id, tagSlugs);
-  console.log(`+ question: ${title}`);
-  return question.id;
+    const { data: question, error } = await supabase
+      .from("questions")
+      .insert({ author_id: authorId, title, body, created_at: daysAgoISO(daysAgo) })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    await tagContent("question", question.id, tagSlugs);
+    console.log(`+ question: ${title}`);
+    return question.id;
+  });
 }
 
 async function ensureAnswer(questionId, authorId, body, { accept = false, daysAgo = 0 } = {}) {
-  const { data: existing } = await supabase.from("answers").select("id").eq("question_id", questionId).eq("author_id", authorId).maybeSingle();
-  const answerId =
-    existing?.id ??
-    (
-      await supabase
+  return safeInsert(`answer on ${String(questionId).slice(0, 8)}`, authorId && questionId ? authorId : null, async () => {
+    const { data: existing } = await supabase
+      .from("answers")
+      .select("id")
+      .eq("question_id", questionId)
+      .eq("author_id", authorId)
+      .maybeSingle();
+
+    let answerId = existing?.id;
+    if (!answerId) {
+      const { data, error } = await supabase
         .from("answers")
         .insert({ question_id: questionId, author_id: authorId, body, created_at: daysAgoISO(daysAgo) })
         .select("id")
-        .single()
-        .then(({ data, error }) => {
-          if (error) throw new Error(`Failed to insert answer: ${error.message}`);
-          return data;
-        })
-    ).id;
+        .single();
+      if (error) throw new Error(error.message);
+      answerId = data.id;
+    }
 
-  if (accept) {
-    await supabase.from("questions").update({ accepted_answer_id: answerId }).eq("id", questionId);
-  }
-  return answerId;
+    if (accept) {
+      await supabase.from("questions").update({ accepted_answer_id: answerId }).eq("id", questionId);
+    }
+    return answerId;
+  });
 }
 
 async function ensureDiscussion(authorId, title, body, tagSlugs = [], daysAgo = 0) {
-  const { data: existing } = await supabase.from("discussions").select("id").eq("title", title).maybeSingle();
-  if (existing) return existing.id;
+  return safeInsert(`discussion "${title}"`, authorId, async () => {
+    const { data: existing } = await supabase.from("discussions").select("id").eq("title", title).maybeSingle();
+    if (existing) return existing.id;
 
-  const { data: discussion, error } = await supabase
-    .from("discussions")
-    .insert({ author_id: authorId, title, body, created_at: daysAgoISO(daysAgo) })
-    .select("id")
-    .single();
-  if (error) throw new Error(`Failed to insert discussion: ${error.message}`);
-  await tagContent("discussion", discussion.id, tagSlugs);
-  console.log(`+ discussion: ${title}`);
-  return discussion.id;
+    const { data: discussion, error } = await supabase
+      .from("discussions")
+      .insert({ author_id: authorId, title, body, created_at: daysAgoISO(daysAgo) })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    await tagContent("discussion", discussion.id, tagSlugs);
+    console.log(`+ discussion: ${title}`);
+    return discussion.id;
+  });
 }
 
 async function ensureNews(submitterId, { title, summary, url, source, tags = [], daysAgo = 0 }) {
-  const { data: existing } = await supabase.from("news").select("id").eq("title", title).maybeSingle();
-  if (existing) return existing.id;
+  return safeInsert(`news "${title.slice(0, 40)}…"`, submitterId, async () => {
+    const { data: existing } = await supabase.from("news").select("id").eq("title", title).maybeSingle();
+    if (existing) {
+      console.log(`✓ news already exists: ${title.slice(0, 40)}…`);
+      return existing.id;
+    }
 
-  const { data: news, error } = await supabase
-    .from("news")
-    .insert({
-      submitted_by: submitterId,
-      title,
-      summary,
-      source_url: url,
-      source_name: source,
-      status: "approved",
-      published_at: daysAgoISO(daysAgo),
-      created_at: daysAgoISO(daysAgo),
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(`Failed to insert news: ${error.message}`);
-  await tagContent("news", news.id, tags);
-  console.log(`+ news: ${title}`);
-  return news.id;
+    const { data: news, error } = await supabase
+      .from("news")
+      .insert({
+        submitted_by: submitterId,
+        title,
+        summary,
+        source_url: url,
+        source_name: source,
+        status: "approved",
+        published_at: daysAgoISO(daysAgo),
+        created_at: daysAgoISO(daysAgo),
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    await tagContent("news", news.id, tags);
+    console.log(`+ news: ${title}`);
+    return news.id;
+  });
 }
 
 async function ensureInterview(authorId, data) {
-  const { data: existing } = await supabase
-    .from("interview_experiences")
-    .select("id")
-    .eq("author_id", authorId)
-    .eq("company", data.company)
-    .eq("position", data.position)
-    .maybeSingle();
-  if (existing) return existing.id;
+  return safeInsert(`interview ${data.position} @ ${data.company}`, authorId, async () => {
+    const { data: existing } = await supabase
+      .from("interview_experiences")
+      .select("id")
+      .eq("author_id", authorId)
+      .eq("company", data.company)
+      .eq("position", data.position)
+      .maybeSingle();
+    if (existing) return existing.id;
 
-  const { data: interview, error } = await supabase
-    .from("interview_experiences")
-    .insert({
-      author_id: authorId,
-      company: data.company,
-      position: data.position,
-      experience_level: data.level,
-      difficulty: data.difficulty,
-      rounds: data.rounds,
-      interview_questions: data.questions,
-      process_description: data.process ?? null,
-      personal_experience: data.experience,
-      status: "approved",
-      created_at: daysAgoISO(data.daysAgo ?? 0),
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(`Failed to insert interview experience: ${error.message}`);
-  console.log(`+ interview: ${data.position} @ ${data.company}`);
-  return interview.id;
+    const { data: interview, error } = await supabase
+      .from("interview_experiences")
+      .insert({
+        author_id: authorId,
+        company: data.company,
+        position: data.position,
+        experience_level: data.level,
+        difficulty: data.difficulty,
+        rounds: data.rounds,
+        interview_questions: data.questions,
+        process_description: data.process ?? null,
+        personal_experience: data.experience,
+        status: "approved",
+        created_at: daysAgoISO(data.daysAgo ?? 0),
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    console.log(`+ interview: ${data.position} @ ${data.company}`);
+    return interview.id;
+  });
 }
 
 async function ensureFollow(followerId, followingId) {
@@ -323,7 +380,12 @@ async function main() {
   console.log("Seeding demo users...");
   const ids = {};
   for (const demo of DEMO_USERS) {
-    ids[demo.username] = await ensureUser(demo);
+    try {
+      ids[demo.username] = await ensureUser(demo);
+    } catch (e) {
+      console.error(`  ! user ${demo.username}: ${e.message} — content by this user will be skipped`);
+      ids[demo.username] = null;
+    }
   }
   const U = ids;
   const ahmed = U.ahmed_nasser;
