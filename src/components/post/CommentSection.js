@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { timeAgo } from "@/lib/format";
@@ -12,6 +13,7 @@ export function CommentSection({ contentType, contentId, comments, currentProfil
   const router = useRouter();
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -19,15 +21,18 @@ export function CommentSection({ contentType, contentId, comments, currentProfil
     if (!trimmed || !currentProfile) return;
 
     setSubmitting(true);
+    setError("");
     const supabase = createClient();
-    const { error } = await supabase.from("comments").insert({
+    const { error: insertError } = await supabase.from("comments").insert({
       author_id: currentProfile.id,
       content_type: contentType,
       content_id: contentId,
       body: trimmed,
     });
 
-    if (!error) {
+    if (insertError) {
+      setError(errorMessage(insertError, "تعذّر إضافة التعليق، حاول مرة أخرى."));
+    } else {
       setBody("");
       router.refresh();
     }
@@ -51,6 +56,7 @@ export function CommentSection({ contentType, contentId, comments, currentProfil
               style={{ flex: 1 }}
             />
           </div>
+          {error ? <span className="field__error">{error}</span> : null}
           <div className="composer__footer">
             <span className="composer__footer-spacer" />
             <Button type="submit" size="sm" disabled={submitting || !body.trim()}>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { attachTags } from "@/lib/tags";
+import { errorMessage } from "@/lib/errors";
 import { Field, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
@@ -37,7 +38,7 @@ export function AskQuestionForm({ userId }) {
       .single();
 
     if (insertError || !question) {
-      setError("تعذّر نشر السؤال، حاول مرة أخرى.");
+      setError(errorMessage(insertError, "تعذّر نشر السؤال، حاول مرة أخرى."));
       setSubmitting(false);
       return;
     }

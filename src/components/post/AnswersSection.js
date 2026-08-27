@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { VoteButton } from "@/components/post/VoteButton";
@@ -15,6 +16,7 @@ export function AnswersSection({ question, answers, currentUser }) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const isQuestionAuthor = currentUser?.id === question.author_id;
 
   async function handleSubmit(event) {
@@ -23,14 +25,17 @@ export function AnswersSection({ question, answers, currentUser }) {
     if (!trimmed || !currentUser) return;
 
     setSubmitting(true);
+    setError("");
     const supabase = createClient();
-    const { error } = await supabase.from("answers").insert({
+    const { error: insertError } = await supabase.from("answers").insert({
       question_id: question.id,
       author_id: currentUser.id,
       body: trimmed,
     });
 
-    if (!error) {
+    if (insertError) {
+      setError(errorMessage(insertError, "تعذّر إرسال الإجابة، حاول مرة أخرى."));
+    } else {
       setBody("");
       router.refresh();
     }
@@ -84,6 +89,7 @@ export function AnswersSection({ question, answers, currentUser }) {
               style={{ flex: 1 }}
             />
           </div>
+          {error ? <span className="field__error">{error}</span> : null}
           <div className="composer__footer">
             <span className="composer__footer-spacer" />
             <Button type="submit" size="sm" disabled={submitting || !body.trim()}>

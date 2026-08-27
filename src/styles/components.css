@@ -21,8 +21,8 @@
 }
 
 .app-header__inner {
-  width: 95%;
-  /* max-width: 1120px; */
+  width: 100%;
+  max-width: min(95%, 1140px);
   margin: 0 auto;
   padding: 0 var(--space-4);
   display: flex;
@@ -55,6 +55,7 @@
 
 .app-header__search {
   flex: 1;
+  min-width: 0;
   max-width: 420px;
 }
 
@@ -65,8 +66,21 @@
   margin-inline-start: auto;
 }
 
+@media (max-width: 640px) {
+  .app-header__inner {
+    gap: var(--space-2);
+  }
+  .app-header__logo .ltr {
+    display: none;
+  }
+  .btn-label-md {
+    display: none;
+  }
+}
+
 .app-main {
-  max-width: 95%;
+  width: 100%;
+  max-width: min(95%, 1140px);
   margin: 0 auto;
   padding: var(--space-5) var(--space-4) var(--space-7);
   display: grid;
@@ -79,8 +93,12 @@
   transition: grid-template-columns var(--duration-base) var(--ease-standard);
 }
 
+/* Collapsed rail: keep the content column pinned to its reading width and
+   centre the pair, instead of letting the article stretch across the whole
+   viewport once the sidebar shrinks to an icon dock. */
 .app-main[data-sidebar="collapsed"] {
-  grid-template-columns: minmax(0, 1fr) 56px;
+  grid-template-columns: minmax(0, var(--content-max-width)) 56px;
+  justify-content: center;
 }
 
 @media (max-width: 1180px) {
@@ -146,6 +164,36 @@
   font-size: var(--text-sm);
   text-align: center;
   border-bottom: 1px solid var(--color-border);
+}
+
+/* --- Notification bell + unread badge ---------------------------------- */
+
+.bell {
+  position: relative;
+  display: inline-flex;
+}
+
+.bell__badge {
+  position: absolute;
+  top: -2px;
+  inset-inline-end: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* --- Row-level unread marker (notifications list) --------------------- */
+
+.notif-row[data-unread="true"] {
+  background: var(--color-brand-subtle);
 }
 
 /* --- Nav links -------------------------------------------------------------- */
@@ -1124,6 +1172,12 @@ a.tag:hover {
 .post__images[data-count="3"],
 .post__images[data-count="4"] {
   grid-template-columns: 1fr 1fr;
+}
+
+/* With three images the first one spans the full width so the grid never
+   leaves an empty cell. */
+.post__images[data-count="3"] > *:first-child {
+  grid-column: span 2;
 }
 
 .post__images img {

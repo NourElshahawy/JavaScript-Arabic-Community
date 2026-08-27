@@ -63,6 +63,13 @@ export function NotificationsList({ initialNotifications, userId }) {
     await supabase.from("notifications").update({ is_read: true }).eq("user_id", userId).eq("is_read", false);
   }
 
+  function markOneRead(id, wasRead) {
+    if (wasRead) return;
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+    const supabase = createClient();
+    supabase.from("notifications").update({ is_read: true }).eq("id", id).then(() => {});
+  }
+
   if (notifications.length === 0) {
     return (
       <div className="card">
@@ -84,7 +91,9 @@ export function NotificationsList({ initialNotifications, userId }) {
           <Link
             key={n.id}
             href={targetHref(n)}
-            className="post"
+            onClick={() => markOneRead(n.id, n.is_read)}
+            className="post notif-row"
+            data-unread={!n.is_read}
             style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-3) var(--space-4)" }}
           >
             <span

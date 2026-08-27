@@ -1,29 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 
-const STORAGE_KEY = "jsac-sidebar-collapsed";
+const COOKIE_KEY = "jsac-sidebar-collapsed";
 
-export function MainGrid({ children }) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    try {
-      setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
-    } catch {
-      // localStorage unavailable (private mode, etc.) — default to expanded.
-    }
-  }, []);
+// `defaultCollapsed` comes from the cookie read server-side in the layout,
+// so the first render already matches the user's choice — no expand/collapse
+// flash on load. The toggle writes the cookie back for the next request.
+export function MainGrid({ children, defaultCollapsed = false }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   function toggle() {
     setCollapsed((prev) => {
       const next = !prev;
       try {
-        localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+        document.cookie = `${COOKIE_KEY}=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
       } catch {
-        // Ignore — nothing to persist to, the toggle still works this session.
+        // Non-fatal — the toggle still applies for this session.
       }
       return next;
     });

@@ -29,6 +29,8 @@ export default async function DiscussionDetailPage({ params }) {
 
   if (!discussion) notFound();
 
+  await supabase.rpc("increment_view_count", { p_content_type: "discussion", p_content_id: params.id });
+
   const { comments } = await getComments(supabase, "discussion", params.id);
 
   return (

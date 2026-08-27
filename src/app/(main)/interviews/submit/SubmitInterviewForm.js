@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errors";
 import { Field, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
@@ -71,7 +72,7 @@ export function SubmitInterviewForm({ userId }) {
     });
 
     if (insertError) {
-      setError("تعذّر إرسال التجربة، حاول مرة أخرى.");
+      setError(errorMessage(insertError, "تعذّر إرسال التجربة، حاول مرة أخرى."));
       setSubmitting(false);
       return;
     }

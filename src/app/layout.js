@@ -27,10 +27,15 @@ export const viewport = {
   themeColor: "#3457d5",
 };
 
+// Applied before first paint so a stored theme choice doesn't flash the
+// default palette. Kept tiny and dependency-free on purpose.
+const themeScript = `try{var t=localStorage.getItem('jsac-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}`;
+
 export default function RootLayout({ children }) {
   return (
     <html lang="ar" dir="rtl" className={plexArabic.variable}>
       <body>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         {children}
         <Analytics />
       </body>

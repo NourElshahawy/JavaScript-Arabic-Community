@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { Bell, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { SearchBox } from "@/components/layout/SearchBox";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { NotificationBell } from "@/components/layout/NotificationBell";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Button } from "@/components/ui/Button";
 
-export function Navbar({ profile }) {
+export function Navbar({ profile, unreadCount = 0 }) {
   return (
     <header className="app-header">
       <div className="app-header__inner">
@@ -16,16 +18,15 @@ export function Navbar({ profile }) {
         <SearchBox />
 
         <div className="app-header__actions">
+          <ThemeToggle />
           {profile ? (
             <>
               <Link href="/new/post">
                 <Button variant="secondary" size="sm">
-                  <Plus size={16} /> إنشاء منشور
+                  <Plus size={16} /> <span className="btn-label-md">إنشاء منشور</span>
                 </Button>
               </Link>
-              <Link href="/notifications" className="btn btn--icon" aria-label="الإشعارات">
-                <Bell size={18} />
-              </Link>
+              <NotificationBell initialCount={unreadCount} userId={profile.id} />
               <UserMenu profile={profile} />
             </>
           ) : (

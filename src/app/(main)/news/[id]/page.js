@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { ExternalLink, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
@@ -26,6 +25,10 @@ export default async function NewsDetailPage({ params }) {
 
   if (!news || (news.status !== "approved" && news.submitted_by !== user?.id)) notFound();
 
+  if (news.status === "approved") {
+    await supabase.rpc("increment_view_count", { p_content_type: "news", p_content_id: params.id });
+  }
+
   const { comments } = await getComments(supabase, "news", params.id);
 
   return (
@@ -35,7 +38,10 @@ export default async function NewsDetailPage({ params }) {
 
       {news.image_url ? (
         <div style={{ position: "relative", aspectRatio: "16 / 9", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-          <Image src={news.image_url} alt="" fill sizes="(max-width: 640px) 100vw, 720px" style={{ objectFit: "cover" }} />
+          {/* Submitter-supplied URL from any host — see NewsCard for why this
+              is a plain <img> and not next/image. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={news.image_url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
       ) : null}
 

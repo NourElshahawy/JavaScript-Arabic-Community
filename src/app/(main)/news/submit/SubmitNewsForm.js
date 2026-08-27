@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { attachTags } from "@/lib/tags";
+import { errorMessage } from "@/lib/errors";
 import { Field, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
@@ -43,7 +44,7 @@ export function SubmitNewsForm({ userId }) {
       .single();
 
     if (insertError || !news) {
-      setError("تعذّر إرسال الخبر، حاول مرة أخرى.");
+      setError(errorMessage(insertError, "تعذّر إرسال الخبر، حاول مرة أخرى."));
       setSubmitting(false);
       return;
     }

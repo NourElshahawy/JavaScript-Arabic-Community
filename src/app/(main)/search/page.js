@@ -40,7 +40,19 @@ export default async function SearchPage({ searchParams }) {
     );
   }
 
-  const like = `%${query}%`;
+  // `,` `(` `)` are PostgREST filter-grammar delimiters — if they reach the
+  // `.or(...)` string they break parsing (or silently return wrong rows).
+  // Strip them (plus the `%`/`_` LIKE wildcards) before building the pattern.
+  const sanitized = query.replace(/[,()%_*]/g, " ").replace(/\s+/g, " ").trim();
+  const like = `%${sanitized}%`;
+
+  if (!sanitized) {
+    return (
+      <div className="card">
+        <EmptyState icon={SearchIcon} title="لا توجد نتائج" description="جرّب كلمات بحث مختلفة." />
+      </div>
+    );
+  }
 
   const [{ data: posts }, { data: questions }, { data: discussions }, { data: news }, { data: interviews }, { data: profiles }, { data: tags }] =
     await Promise.all([

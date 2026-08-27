@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { attachTags } from "@/lib/tags";
+import { errorMessage } from "@/lib/errors";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { ImagePicker } from "@/components/post/ImagePicker";
@@ -50,7 +51,7 @@ export function PostComposer({ profile }) {
       .single();
 
     if (insertError || !post) {
-      setError("تعذّر نشر المنشور، حاول مرة أخرى.");
+      setError(errorMessage(insertError, "تعذّر نشر المنشور، حاول مرة أخرى."));
       setSubmitting(false);
       return;
     }

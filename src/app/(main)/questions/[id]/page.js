@@ -27,6 +27,8 @@ export default async function QuestionDetailPage({ params }) {
 
   if (!question) notFound();
 
+  await supabase.rpc("increment_view_count", { p_content_type: "question", p_content_id: params.id });
+
   const { answers } = await getAnswers(supabase, params.id, { userId: user?.id });
 
   const { data: bookmark } = user

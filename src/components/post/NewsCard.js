@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ExternalLink, MessageCircle } from "lucide-react";
 import { timeAgo, formatCount } from "@/lib/format";
 
@@ -15,7 +14,10 @@ export function NewsCard({ item }) {
 
       {item.image_url ? (
         <div style={{ position: "relative", aspectRatio: "16 / 9", margin: "var(--space-2) 0", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-          <Image src={item.image_url} alt="" fill sizes="(max-width: 640px) 100vw, 600px" style={{ objectFit: "cover" }} />
+          {/* Submitter-supplied URL from any host — next/image can't be locked
+              to a remotePatterns allow-list here, so a plain <img> is correct. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.image_url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
       ) : null}
 

@@ -32,6 +32,8 @@ export default async function PostDetailPage({ params }) {
 
   if (!post) notFound();
 
+  await supabase.rpc("increment_view_count", { p_content_type: "post", p_content_id: params.id });
+
   const { comments } = await getComments(supabase, "post", params.id);
 
   return (
