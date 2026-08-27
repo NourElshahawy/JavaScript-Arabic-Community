@@ -4,9 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, BellOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ui/Toast";
+import { errorMessage } from "@/lib/errors";
 
 export function DiscussionFollowButton({ discussionId, initialFollowing, isAuthenticated }) {
   const router = useRouter();
+  const toast = useToast();
   const [following, setFollowing] = useState(initialFollowing);
 
   async function handleClick() {
@@ -22,10 +25,12 @@ export function DiscussionFollowButton({ discussionId, initialFollowing, isAuthe
 
     if (following) {
       const { error } = await supabase.from("discussion_follows").delete().eq("discussion_id", discussionId).eq("user_id", user.id);
-      if (!error) setFollowing(false);
+      if (error) toast(errorMessage(error, "تعذّر إلغاء المتابعة."), { type: "error" });
+      else setFollowing(false);
     } else {
       const { error } = await supabase.from("discussion_follows").insert({ discussion_id: discussionId, user_id: user.id });
-      if (!error) setFollowing(true);
+      if (error) toast(errorMessage(error, "تعذّر متابعة النقاش."), { type: "error" });
+      else setFollowing(true);
     }
   }
 

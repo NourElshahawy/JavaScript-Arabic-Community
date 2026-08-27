@@ -21,8 +21,7 @@
 }
 
 .app-header__inner {
-  width: 100%;
-  max-width: min(95%, 1140px);
+  width: 95%;
   margin: 0 auto;
   padding: 0 var(--space-4);
   display: flex;
@@ -79,40 +78,51 @@
 }
 
 .app-main {
-  width: 100%;
-  max-width: min(95%, 1140px);
+  max-width: 95%;
   margin: 0 auto;
   padding: var(--space-5) var(--space-4) var(--space-7);
   display: grid;
-  /* Content stays pinned at its reading-width cap; the sidebar absorbs
-     whatever space is left over instead of leaving it empty next to a
-     fixed-width column. */
-  grid-template-columns: var(--content-max-width) minmax(var(--sidebar-width), 1fr);
+  /* Content column takes the available width; the sidebar is only as wide
+     as its own content, never a stretched empty panel. */
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-width);
   gap: var(--space-6);
   align-items: start;
   transition: grid-template-columns var(--duration-base) var(--ease-standard);
 }
 
-/* Collapsed rail: keep the content column pinned to its reading width and
-   centre the pair, instead of letting the article stretch across the whole
-   viewport once the sidebar shrinks to an icon dock. */
+/* Collapsed: a slim icon rail. Content fills the rest so there's no dead
+   gap beside it. */
 .app-main[data-sidebar="collapsed"] {
-  grid-template-columns: minmax(0, var(--content-max-width)) 56px;
-  justify-content: center;
+  grid-template-columns: minmax(0, 1fr) 52px;
 }
 
-@media (max-width: 1180px) {
-  .app-main {
-    grid-template-columns: minmax(0, var(--content-max-width)) minmax(var(--sidebar-width), 1fr);
+/* The sidebar stays in its column on smaller screens too (no bottom bar);
+   below this width it auto-folds into the icon rail regardless of the
+   stored toggle state. */
+@media (max-width: 860px) {
+  .app-main,
+  .app-main[data-sidebar="expanded"] {
+    grid-template-columns: minmax(0, 1fr) 52px;
+    gap: var(--space-3);
   }
-}
-
-@media (max-width: 920px) {
-  .app-main {
-    grid-template-columns: 1fr;
+  .app-main__sidebar .nav-link {
+    justify-content: center;
+    padding: var(--space-2);
   }
-  .app-main__sidebar {
+  .app-main__sidebar .nav-link__label,
+  .app-main__sidebar .sidebar-toggle,
+  .app-main__sidebar .sidebar-widget {
     display: none;
+  }
+  .app-main__sidebar .sidebar-card .nav-link:first-child {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-main {
+    max-width: 100%;
+    padding-inline: var(--space-3);
   }
 }
 
@@ -122,39 +132,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.bottom-nav {
-  display: none;
-}
-
-@media (max-width: 640px) {
-  .bottom-nav {
-    display: flex;
-    position: sticky;
-    bottom: 0;
-    z-index: var(--z-header);
-    background: var(--color-surface);
-    border-top: 1px solid var(--color-border);
-    padding: var(--space-1) var(--space-2);
-    justify-content: space-between;
-  }
-
-  .bottom-nav__item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    padding: var(--space-1);
-    color: var(--color-text-muted);
-    font-size: var(--text-xs);
-    border-radius: var(--radius-md);
-  }
-
-  .bottom-nav__item[data-active="true"] {
-    color: var(--color-brand);
-  }
 }
 
 .status-banner {
@@ -245,17 +222,22 @@
   margin-top: var(--space-6);
 }
 
-/* Icon-rail mode: hide every label, center icons, and shrink the rail so
-   it reads as a slim dock rather than a half-open sidebar. */
-.app-main[data-sidebar="collapsed"] .app-main__sidebar {
-  width: 56px;
+/* Icon-rail mode: hide labels, centre icons, bump the glyph up a size so
+   it doesn't read as a tiny dot in the middle of the rail. */
+.app-main[data-sidebar="collapsed"] .app-main__sidebar,
+.app-main[data-sidebar="collapsed"] .sidebar-card {
+  width: 52px;
+}
+
+.app-main[data-sidebar="collapsed"] .sidebar-card {
+  padding: var(--space-2);
 }
 
 .app-main[data-sidebar="collapsed"] .sidebar-toggle {
   position: static;
   display: flex;
   justify-content: center;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .app-main[data-sidebar="collapsed"] .sidebar-card .nav-link:first-child {
@@ -267,7 +249,14 @@
   padding: var(--space-2);
 }
 
-.app-main[data-sidebar="collapsed"] .nav-link__label {
+.app-main[data-sidebar="collapsed"] .nav-link svg,
+.app-main[data-sidebar="collapsed"] .sidebar-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+.app-main[data-sidebar="collapsed"] .nav-link__label,
+.app-main[data-sidebar="collapsed"] .sidebar-widget {
   display: none;
 }
 
@@ -1326,4 +1315,199 @@ a.tag:hover {
   display: flex;
   gap: var(--space-1);
   flex-wrap: wrap;
+}
+
+/* --- Toast type accents ------------------------------------------------- */
+
+.toast[data-type="success"] svg {
+  color: var(--color-accept);
+}
+.toast[data-type="error"] svg {
+  color: var(--color-danger);
+}
+
+/* --- RichText (markdown-lite body rendering) -------------------------- */
+
+.rich-text {
+  color: var(--color-text);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+}
+
+.rich-text__p {
+  color: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.rich-text__p + .rich-text__p {
+  margin-top: var(--space-3);
+}
+
+.rich-text pre {
+  margin: var(--space-3) 0;
+}
+
+.rich-text__link {
+  color: var(--color-brand);
+}
+.rich-text__link:hover {
+  text-decoration: underline;
+}
+
+/* --- Comment reply thread ------------------------------------------------ */
+
+.comment__reply-form {
+  margin-inline-start: var(--space-6);
+  margin-top: var(--space-2);
+}
+
+.comment__toggle-replies {
+  margin-inline-start: var(--space-6);
+  font-size: var(--text-xs);
+  color: var(--color-brand);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1) 0;
+}
+
+/* --- Sidebar widgets --------------------------------------------------- */
+
+.sidebar-widget {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sidebar-widget__title {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sidebar-widget__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.sidebar-widget__row:hover {
+  color: var(--color-text);
+}
+
+.sidebar-widget__row span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-widget__row-meta {
+  margin-inline-start: auto;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+/* --- Tag filter bar (list sections) --------------------------------- */
+
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.tag-filter .tag {
+  height: 28px;
+  cursor: pointer;
+}
+
+.tag-filter .tag[data-active="true"] {
+  background: var(--color-brand-subtle);
+  color: var(--color-brand);
+}
+
+/* --- Visitor landing hero ------------------------------------------- */
+
+.landing-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.landing-hero h1 {
+  font-size: var(--text-2xl);
+}
+
+.landing-hero__lead {
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+  max-width: 52ch;
+}
+
+.landing-hero__cta {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.landing-hero__features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.landing-hero__feature {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.landing-hero__feature svg {
+  color: var(--color-brand);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* --- Section tab bar (feed / list sorting) -------------------------- */
+
+.section-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-4);
+  overflow-x: auto;
+}
+
+.section-tabs__item {
+  padding: var(--space-3) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+
+.section-tabs__item:hover {
+  color: var(--color-text);
+}
+
+.section-tabs__item[data-active="true"] {
+  color: var(--color-text);
+  border-bottom-color: var(--color-brand);
 }

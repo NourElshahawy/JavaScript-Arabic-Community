@@ -4,9 +4,12 @@ import { useState } from "react";
 import { Bookmark } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ui/Toast";
+import { errorMessage } from "@/lib/errors";
 
 export function BookmarkButton({ contentType = "post", contentId, initialBookmarked, isAuthenticated, iconOnly = false }) {
   const router = useRouter();
+  const toast = useToast();
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
 
   async function handleClick() {
@@ -27,7 +30,12 @@ export function BookmarkButton({ contentType = "post", contentId, initialBookmar
       const { error } = await supabase
         .from("bookmarks")
         .insert({ user_id: user.id, content_type: contentType, content_id: contentId });
-      if (error) setBookmarked(false);
+      if (error) {
+        setBookmarked(false);
+        toast(errorMessage(error, "تعذّر الحفظ."), { type: "error" });
+      } else {
+        toast("تم الحفظ في المحفوظات.", { type: "success" });
+      }
     } else {
       const { error } = await supabase
         .from("bookmarks")
@@ -35,7 +43,10 @@ export function BookmarkButton({ contentType = "post", contentId, initialBookmar
         .eq("user_id", user.id)
         .eq("content_type", contentType)
         .eq("content_id", contentId);
-      if (error) setBookmarked(true);
+      if (error) {
+        setBookmarked(true);
+        toast(errorMessage(error, "تعذّر إلغاء الحفظ."), { type: "error" });
+      }
     }
   }
 

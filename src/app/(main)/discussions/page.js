@@ -5,16 +5,37 @@ import { getCurrentUser } from "@/lib/supabase/current-user";
 import { getDiscussions } from "@/lib/data/discussions";
 import { EmptyState } from "@/components/ui/States";
 import { Button } from "@/components/ui/Button";
+import { SectionTabs } from "@/components/ui/SectionTabs";
+import { TagFilterBar } from "@/components/ui/TagFilterBar";
 import { LoadMoreList } from "@/components/ui/LoadMoreList";
 
 export const metadata = { title: "النقاشات" };
 
 const PAGE_SIZE = 20;
+const SORTS = [
+  { key: "newest", label: "الأحدث" },
+  { key: "active", label: "الأكثر تفاعلًا" },
+  { key: "votes", label: "الأكثر تصويتًا" },
+];
 
-export default async function DiscussionsPage() {
+function buildEndpoint(sort, tag) {
+  const params = new URLSearchParams();
+  if (sort && sort !== "newest") params.set("sort", sort);
+  if (tag) params.set("tag", tag);
+  const qs = params.toString();
+  return qs ? `/api/discussions?${qs}` : "/api/discussions";
+}
+
+export default async function DiscussionsPage({ searchParams }) {
   const supabase = await createClient();
   const { user } = await getCurrentUser();
-  const { discussions } = await getDiscussions(supabase, { limit: PAGE_SIZE });
+  const sort = SORTS.some((s) => s.key === searchParams?.sort) ? searchParams.sort : "newest";
+  const tag = searchParams?.tag || null;
+
+  const [{ discussions }, { data: topTags }] = await Promise.all([
+    getDiscussions(supabase, { limit: PAGE_SIZE, sort, tagSlug: tag || undefined }),
+    supabase.from("tags").select("id, name, slug").order("usage_count", { ascending: false }).limit(10),
+  ]);
 
   return (
     <div>
@@ -27,12 +48,25 @@ export default async function DiscussionsPage() {
         </span>
       </div>
 
+      <SectionTabs basePath="/discussions" param="sort" current={sort} tabs={SORTS} keep={{ tag }} label="ترتيب النقاشات" />
+      <TagFilterBar basePath="/discussions" tags={topTags ?? []} active={tag} keep={{ sort: sort !== "newest" ? sort : "" }} />
+
       {discussions.length === 0 ? (
         <div className="card">
-          <EmptyState icon={MessagesSquare} title="لا توجد نقاشات بعد" description="ابدأ نقاشًا مفتوحًا حول تقنية أو قرار هندسي." />
+          <EmptyState
+            icon={MessagesSquare}
+            title={tag ? `لا توجد نقاشات بوسم #${tag}` : "لا توجد نقاشات بعد"}
+            description={tag ? undefined : "ابدأ نقاشًا مفتوحًا حول تقنية أو قرار هندسي."}
+          />
         </div>
       ) : (
-        <LoadMoreList type="discussion" endpoint="/api/discussions" initialItems={discussions} initialHasMore={discussions.length === PAGE_SIZE} />
+        <LoadMoreList
+          key={`${sort}-${tag || "all"}`}
+          type="discussion"
+          endpoint={buildEndpoint(sort, tag)}
+          initialItems={discussions}
+          initialHasMore={discussions.length === PAGE_SIZE}
+        />
       )}
     </div>
   );

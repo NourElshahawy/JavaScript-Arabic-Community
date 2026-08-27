@@ -4,9 +4,12 @@ import { useState } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ui/Toast";
+import { errorMessage } from "@/lib/errors";
 
 export function VoteButton({ contentType, contentId, initialVote, initialScore, isAuthenticated }) {
   const router = useRouter();
+  const toast = useToast();
   const [vote, setVote] = useState(initialVote); // "up" | "down" | null
   const [score, setScore] = useState(initialScore);
 
@@ -37,6 +40,7 @@ export function VoteButton({ contentType, contentId, initialVote, initialScore, 
       if (error) {
         setVote(previousVote);
         setScore(previousScore);
+        toast(errorMessage(error, "تعذّر التصويت، حاول مرة أخرى."), { type: "error" });
       }
       return;
     }
@@ -55,6 +59,7 @@ export function VoteButton({ contentType, contentId, initialVote, initialScore, 
     if (error) {
       setVote(previousVote);
       setScore(previousScore);
+      toast(errorMessage(error, "تعذّر التصويت، حاول مرة أخرى."), { type: "error" });
     } else {
       router.refresh();
     }

@@ -9,7 +9,7 @@ const COOKIE_KEY = "jsac-sidebar-collapsed";
 // `defaultCollapsed` comes from the cookie read server-side in the layout,
 // so the first render already matches the user's choice — no expand/collapse
 // flash on load. The toggle writes the cookie back for the next request.
-export function MainGrid({ children, defaultCollapsed = false }) {
+export function MainGrid({ children, defaultCollapsed = false, topTags = [], topUsers = [] }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   function toggle() {
@@ -38,7 +38,7 @@ export function MainGrid({ children, defaultCollapsed = false }) {
           >
             {collapsed ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
           </button>
-          <Sidebar />
+          <Sidebar topTags={topTags} topUsers={topUsers} />
         </div>
       </aside>
     </main>

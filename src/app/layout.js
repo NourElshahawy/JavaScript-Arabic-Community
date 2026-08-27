@@ -1,6 +1,7 @@
 import "@/styles/globals.css";
 import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import { Analytics } from "@/components/Analytics";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const plexArabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic", "latin"],
@@ -36,7 +37,7 @@ export default function RootLayout({ children }) {
     <html lang="ar" dir="rtl" className={plexArabic.variable}>
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
         <Analytics />
       </body>
     </html>

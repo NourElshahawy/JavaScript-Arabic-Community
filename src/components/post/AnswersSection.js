@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import { errorMessage } from "@/lib/errors";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { RichText } from "@/components/ui/RichText";
+import { OwnerEditable } from "@/components/content/OwnerEditable";
 import { VoteButton } from "@/components/post/VoteButton";
 import { AcceptAnswerButton } from "@/components/post/AcceptAnswerButton";
 import { timeAgo } from "@/lib/format";
@@ -56,7 +58,14 @@ export function AnswersSection({ question, answers, currentUser }) {
             isAuthenticated={!!currentUser}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="post__body">{answer.body}</p>
+            <OwnerEditable
+              isOwner={currentUser?.id === answer.author_id}
+              table="answers"
+              id={answer.id}
+              editedAt
+              fields={[{ name: "body", label: "الإجابة", value: answer.body, textarea: true, rows: 5 }]}
+              view={<RichText text={answer.body} />}
+            />
             <div className="post__footer">
               {isQuestionAuthor ? (
                 <AcceptAnswerButton questionId={question.id} answerId={answer.id} isAccepted={answer.is_accepted} />

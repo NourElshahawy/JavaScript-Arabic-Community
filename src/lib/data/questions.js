@@ -1,13 +1,24 @@
-export async function getQuestions(supabase, { limit = 20, offset = 0 } = {}) {
-  const { data: questions, error } = await supabase
+import { contentIdsForTag } from "@/lib/data/tag-filter";
+
+// sort: "newest" (default) | "votes" (highest upvotes) | "unanswered"
+export async function getQuestions(supabase, { limit = 20, offset = 0, sort = "newest", tagSlug } = {}) {
+  const tagIds = await contentIdsForTag(supabase, "question", tagSlug);
+  if (tagIds && tagIds.length === 0) return { questions: [], error: null };
+
+  let query = supabase
     .from("questions")
     .select(
       `id, title, body, accepted_answer_id, upvotes_count, downvotes_count, answers_count, views_count, created_at,
        author:profiles!questions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
     )
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .eq("status", "approved");
+
+  if (tagIds) query = query.in("id", tagIds);
+  if (sort === "unanswered") query = query.eq("answers_count", 0);
+  if (sort === "votes") query = query.order("upvotes_count", { ascending: false });
+  query = query.order("created_at", { ascending: false });
+
+  const { data: questions, error } = await query.range(offset, offset + limit - 1);
 
   if (error || !questions?.length) return { questions: [], error };
 

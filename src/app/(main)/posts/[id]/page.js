@@ -13,6 +13,8 @@ import { ShareButton } from "@/components/post/ShareButton";
 import { ReportDialog } from "@/components/post/ReportDialog";
 import { PostImages } from "@/components/post/PostImages";
 import { CommentSection } from "@/components/post/CommentSection";
+import { RichText } from "@/components/ui/RichText";
+import { OwnerEditable } from "@/components/content/OwnerEditable";
 import { timeAgo, formatCount } from "@/lib/format";
 
 export async function generateMetadata({ params }) {
@@ -47,7 +49,15 @@ export default async function PostDetailPage({ params }) {
         <span className="post__meta">· {timeAgo(post.created_at)}</span>
       </div>
 
-      <p className="post__body">{post.body}</p>
+      <OwnerEditable
+        isOwner={user?.id === post.author_id}
+        table="posts"
+        id={post.id}
+        editedAt
+        redirectTo="/"
+        fields={[{ name: "body", label: "المنشور", value: post.body, textarea: true, rows: 6 }]}
+        view={<RichText text={post.body} className="post__body" />}
+      />
 
       <PostImages images={post.images} />
 

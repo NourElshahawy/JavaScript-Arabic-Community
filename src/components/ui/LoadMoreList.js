@@ -35,7 +35,7 @@ function renderItem(type, item, extra) {
 // under src/app/api/*) and appends them client-side. For type="post" it
 // also listens for newly-approved posts over Realtime and surfaces a "new
 // posts" banner rather than silently reordering the list under the reader.
-export function LoadMoreList({ type, endpoint, initialItems, initialHasMore, isAuthenticated = false }) {
+export function LoadMoreList({ type, endpoint, initialItems, initialHasMore, isAuthenticated = false, liveUpdates = false }) {
   const [items, setItems] = useState(initialItems);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
@@ -44,12 +44,14 @@ export function LoadMoreList({ type, endpoint, initialItems, initialHasMore, isA
   const topRef = useRef(null);
   const itemsRef = useRef(items);
 
+  const sep = endpoint.includes("?") ? "&" : "?";
+
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
 
   useEffect(() => {
-    if (type !== "post") return;
+    if (type !== "post" || !liveUpdates) return;
 
     const supabase = createClient();
     const channel = supabase
@@ -65,13 +67,13 @@ export function LoadMoreList({ type, endpoint, initialItems, initialHasMore, isA
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [type]);
+  }, [type, liveUpdates]);
 
   async function loadMore() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${endpoint}?offset=${items.length}`);
+      const response = await fetch(`${endpoint}${sep}offset=${items.length}`);
       if (!response.ok) throw new Error("request failed");
       const { items: nextItems, hasMore: nextHasMore } = await response.json();
       setItems((prev) => [...prev, ...nextItems]);
@@ -85,7 +87,7 @@ export function LoadMoreList({ type, endpoint, initialItems, initialHasMore, isA
   async function showNewPosts() {
     setLoading(true);
     try {
-      const response = await fetch(`${endpoint}?offset=0`);
+      const response = await fetch(`${endpoint}${sep}offset=0`);
       if (!response.ok) throw new Error("request failed");
       const { items: freshItems } = await response.json();
       setItems((current) => {

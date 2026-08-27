@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
-import { BottomNav } from "@/components/layout/Sidebar";
 import { MainGrid } from "@/components/layout/MainGrid";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
@@ -13,17 +12,17 @@ export default async function MainLayout({ children }) {
     redirect("/onboarding/profile-setup");
   }
 
-  let unreadCount = 0;
-  if (user) {
-    const supabase = await createClient();
-    const { count } = await supabase
-      .from("notifications")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("is_read", false);
-    unreadCount = count ?? 0;
-  }
+  const supabase = await createClient();
 
+  const [unread, topTagsRes, topUsersRes] = await Promise.all([
+    user
+      ? supabase.from("notifications").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("is_read", false)
+      : Promise.resolve({ count: 0 }),
+    supabase.from("tags").select("id, name, slug, usage_count").order("usage_count", { ascending: false }).limit(6),
+    supabase.from("profiles").select("id, username, full_name, avatar_url, reputation").order("reputation", { ascending: false }).limit(5),
+  ]);
+
+  const unreadCount = unread.count ?? 0;
   const sidebarCollapsed = cookies().get("jsac-sidebar-collapsed")?.value === "1";
 
   return (
@@ -36,8 +35,9 @@ export default async function MainLayout({ children }) {
             : "تم إيقاف حسابك مؤقتًا. لا يمكنك النشر أو التعليق أو التصويت حتى تتم إعادة تفعيله."}
         </div>
       ) : null}
-      <MainGrid defaultCollapsed={sidebarCollapsed}>{children}</MainGrid>
-      <BottomNav />
+      <MainGrid defaultCollapsed={sidebarCollapsed} topTags={topTagsRes.data ?? []} topUsers={topUsersRes.data ?? []}>
+        {children}
+      </MainGrid>
     </div>
   );
 }

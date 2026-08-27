@@ -11,6 +11,8 @@ import { BookmarkButton } from "@/components/post/BookmarkButton";
 import { ShareButton } from "@/components/post/ShareButton";
 import { ReportDialog } from "@/components/post/ReportDialog";
 import { AnswersSection } from "@/components/post/AnswersSection";
+import { RichText } from "@/components/ui/RichText";
+import { OwnerEditable } from "@/components/content/OwnerEditable";
 import { timeAgo, formatCount } from "@/lib/format";
 
 export async function generateMetadata({ params }) {
@@ -59,7 +61,18 @@ export default async function QuestionDetailPage({ params }) {
             <span className="post__meta">· {timeAgo(question.created_at)}</span>
           </div>
 
-          <p className="post__body">{question.body}</p>
+          <OwnerEditable
+            isOwner={user?.id === question.author_id}
+            table="questions"
+            id={question.id}
+            editedAt
+            redirectTo="/questions"
+            fields={[
+              { name: "title", label: "العنوان", value: question.title, rows: 1 },
+              { name: "body", label: "التفاصيل", value: question.body, textarea: true, rows: 8 },
+            ]}
+            view={<RichText text={question.body} />}
+          />
 
           <TagList tags={question.tags} />
 

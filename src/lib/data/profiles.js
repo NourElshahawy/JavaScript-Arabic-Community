@@ -67,3 +67,41 @@ export async function getPostsByAuthor(supabase, authorId, { userId } = {}) {
     error: null,
   };
 }
+
+export async function getQuestionsByAuthor(supabase, authorId) {
+  const { data, error } = await supabase
+    .from("questions")
+    .select(
+      `id, title, body, accepted_answer_id, upvotes_count, downvotes_count, answers_count, views_count, created_at,
+       author:profiles!questions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
+    )
+    .eq("author_id", authorId)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
+
+  return { questions: (data ?? []).map((q) => ({ ...q, tags: [] })), error };
+}
+
+export async function getDiscussionsByAuthor(supabase, authorId) {
+  const { data, error } = await supabase
+    .from("discussions")
+    .select(
+      `id, title, body, upvotes_count, downvotes_count, comments_count, views_count, created_at,
+       author:profiles!discussions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
+    )
+    .eq("author_id", authorId)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
+
+  return { discussions: (data ?? []).map((d) => ({ ...d, tags: [] })), error };
+}
+
+export async function getAnswersByAuthor(supabase, authorId) {
+  const { data, error } = await supabase
+    .from("answers")
+    .select("id, body, is_accepted, upvotes_count, created_at, question:questions!answers_question_id_fkey(id, title)")
+    .eq("author_id", authorId)
+    .order("created_at", { ascending: false });
+
+  return { answers: data ?? [], error };
+}

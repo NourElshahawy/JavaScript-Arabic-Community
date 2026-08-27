@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { Share2, Check } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 export function ShareButton({ path }) {
+  const toast = useToast();
   const [copied, setCopied] = useState(false);
 
   async function handleClick() {
@@ -11,9 +13,10 @@ export function ShareButton({ path }) {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      toast("تم نسخ الرابط.", { type: "success" });
       setTimeout(() => setCopied(false), 1600);
     } catch {
-      // Clipboard API unavailable — silently ignore, nothing else to do here.
+      toast("متصفحك مش سامح بالنسخ. انسخ الرابط من شريط العنوان.", { type: "error" });
     }
   }
 

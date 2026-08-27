@@ -13,6 +13,8 @@ import { ShareButton } from "@/components/post/ShareButton";
 import { ReportDialog } from "@/components/post/ReportDialog";
 import { DiscussionFollowButton } from "@/components/post/DiscussionFollowButton";
 import { CommentSection } from "@/components/post/CommentSection";
+import { RichText } from "@/components/ui/RichText";
+import { OwnerEditable } from "@/components/content/OwnerEditable";
 import { timeAgo, formatCount } from "@/lib/format";
 
 export async function generateMetadata({ params }) {
@@ -57,7 +59,18 @@ export default async function DiscussionDetailPage({ params }) {
             <span className="post__meta">· {timeAgo(discussion.created_at)}</span>
           </div>
 
-          <p className="post__body">{discussion.body}</p>
+          <OwnerEditable
+            isOwner={user?.id === discussion.author_id}
+            table="discussions"
+            id={discussion.id}
+            editedAt
+            redirectTo="/discussions"
+            fields={[
+              { name: "title", label: "العنوان", value: discussion.title, rows: 1 },
+              { name: "body", label: "التفاصيل", value: discussion.body, textarea: true, rows: 8 },
+            ]}
+            view={<RichText text={discussion.body} />}
+          />
 
           <TagList tags={discussion.tags} />
 

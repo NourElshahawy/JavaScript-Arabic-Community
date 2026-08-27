@@ -1,13 +1,19 @@
-export async function getPublishedInterviews(supabase, { limit = 20, offset = 0 } = {}) {
-  const { data, error } = await supabase
+const DIFFICULTIES = new Set(["easy", "medium", "hard"]);
+const LEVELS = new Set(["intern", "junior", "mid", "senior", "lead"]);
+
+export async function getPublishedInterviews(supabase, { limit = 20, offset = 0, difficulty, level } = {}) {
+  let query = supabase
     .from("interview_experiences")
     .select(
       `id, company, position, experience_level, difficulty, rounds, personal_experience, likes_count, comments_count, created_at,
        author:profiles!interview_experiences_author_id_fkey(id, username, full_name, avatar_url)`
     )
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .eq("status", "approved");
+
+  if (DIFFICULTIES.has(difficulty)) query = query.eq("difficulty", difficulty);
+  if (LEVELS.has(level)) query = query.eq("experience_level", level);
+
+  const { data, error } = await query.order("created_at", { ascending: false }).range(offset, offset + limit - 1);
 
   return { interviews: data ?? [], error };
 }

@@ -1,15 +1,25 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Link2, Globe, Calendar, MessageSquareText } from "lucide-react";
+import { MapPin, Link2, Globe, Calendar, MessageSquareText, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
-import { getProfileByUsername, getPostsByAuthor } from "@/lib/data/profiles";
+import {
+  getProfileByUsername,
+  getPostsByAuthor,
+  getQuestionsByAuthor,
+  getDiscussionsByAuthor,
+  getAnswersByAuthor,
+} from "@/lib/data/profiles";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { PostCard } from "@/components/post/PostCard";
+import { QuestionCard } from "@/components/post/QuestionCard";
+import { DiscussionCard } from "@/components/post/DiscussionCard";
 import { EmptyState } from "@/components/ui/States";
+import { SectionTabs } from "@/components/ui/SectionTabs";
 import { FollowButton } from "@/components/profile/FollowButton";
 import { ProfileBadges } from "@/components/profile/ProfileBadges";
+import { timeAgo } from "@/lib/format";
 
 export async function generateMetadata({ params }) {
   const supabase = await createClient();
@@ -23,7 +33,14 @@ export async function generateMetadata({ params }) {
 
 const JOIN_DATE_FORMAT = new Intl.DateTimeFormat("ar", { year: "numeric", month: "long" });
 
-export default async function ProfilePage({ params }) {
+const TABS = [
+  { key: "posts", label: "المنشورات" },
+  { key: "questions", label: "الأسئلة" },
+  { key: "answers", label: "الإجابات" },
+  { key: "discussions", label: "النقاشات" },
+];
+
+export default async function ProfilePage({ params, searchParams }) {
   const supabase = await createClient();
   const { user } = await getCurrentUser();
   const { profile } = await getProfileByUsername(supabase, params.username, { viewerId: user?.id });
@@ -31,7 +48,7 @@ export default async function ProfilePage({ params }) {
   if (!profile) notFound();
 
   const isOwnProfile = user?.id === profile.id;
-  const { posts } = await getPostsByAuthor(supabase, profile.id, { userId: user?.id });
+  const tab = TABS.some((t) => t.key === searchParams?.tab) ? searchParams.tab : "posts";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
@@ -106,13 +123,50 @@ export default async function ProfilePage({ params }) {
       </div>
 
       <div>
-        <h2 style={{ marginBottom: "var(--space-3)" }}>المنشورات</h2>
-        {posts.length === 0 ? (
-          <EmptyState icon={MessageSquareText} title="لا توجد منشورات بعد" />
-        ) : (
-          posts.map((post) => <PostCard key={post.id} post={post} isAuthenticated={!!user} />)
-        )}
+        <SectionTabs basePath={`/u/${profile.username}`} param="tab" current={tab} tabs={TABS} label="محتوى المستخدم" />
+        <ProfileTabContent supabase={supabase} profileId={profile.id} tab={tab} userId={user?.id} />
       </div>
     </div>
   );
+}
+
+async function ProfileTabContent({ supabase, profileId, tab, userId }) {
+  if (tab === "questions") {
+    const { questions } = await getQuestionsByAuthor(supabase, profileId);
+    if (!questions.length) return <EmptyState icon={MessageSquareText} title="لا توجد أسئلة بعد" />;
+    return questions.map((q) => <QuestionCard key={q.id} question={q} />);
+  }
+
+  if (tab === "discussions") {
+    const { discussions } = await getDiscussionsByAuthor(supabase, profileId);
+    if (!discussions.length) return <EmptyState icon={MessageSquareText} title="لا توجد نقاشات بعد" />;
+    return discussions.map((d) => <DiscussionCard key={d.id} discussion={d} />);
+  }
+
+  if (tab === "answers") {
+    const { answers } = await getAnswersByAuthor(supabase, profileId);
+    if (!answers.length) return <EmptyState icon={MessageSquareText} title="لا توجد إجابات بعد" />;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        {answers.map((a) => (
+          <Link key={a.id} href={`/questions/${a.question?.id}`} className="card" style={{ display: "block" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: 4 }}>
+              {a.is_accepted ? <CheckCircle2 size={14} style={{ color: "var(--color-accept)" }} /> : null}
+              <span style={{ fontWeight: "var(--weight-semibold)", fontSize: "var(--text-sm)" }}>{a.question?.title}</span>
+              <span className="post__meta" style={{ marginInlineStart: "auto" }}>
+                {timeAgo(a.created_at)}
+              </span>
+            </div>
+            <p className="post__body" style={{ WebkitLineClamp: 2, display: "-webkit-box", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              {a.body}
+            </p>
+          </Link>
+        ))}
+      </div>
+    );
+  }
+
+  const { posts } = await getPostsByAuthor(supabase, profileId, { userId });
+  if (!posts.length) return <EmptyState icon={MessageSquareText} title="لا توجد منشورات بعد" />;
+  return posts.map((post) => <PostCard key={post.id} post={post} isAuthenticated={!!userId} />);
 }

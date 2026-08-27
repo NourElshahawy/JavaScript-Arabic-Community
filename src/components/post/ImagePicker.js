@@ -2,12 +2,14 @@
 
 import { useRef } from "react";
 import { ImagePlus, X } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 const MAX_IMAGES = 4;
 const MAX_SIZE = 5 * 1024 * 1024;
 
 export function ImagePicker({ images, onChange, disabled }) {
   const inputRef = useRef(null);
+  const toast = useToast();
 
   function handleSelect(event) {
     const files = Array.from(event.target.files || []);
@@ -15,12 +17,28 @@ export function ImagePicker({ images, onChange, disabled }) {
     if (!files.length) return;
 
     const accepted = [];
+    let rejectedType = 0;
+    let rejectedSize = 0;
+    let rejectedCount = 0;
     for (const file of files) {
-      if (images.length + accepted.length >= MAX_IMAGES) break;
-      if (!file.type.startsWith("image/")) continue;
-      if (file.size > MAX_SIZE) continue;
+      if (images.length + accepted.length >= MAX_IMAGES) {
+        rejectedCount++;
+        continue;
+      }
+      if (!file.type.startsWith("image/")) {
+        rejectedType++;
+        continue;
+      }
+      if (file.size > MAX_SIZE) {
+        rejectedSize++;
+        continue;
+      }
       accepted.push({ file, previewUrl: URL.createObjectURL(file) });
     }
+
+    if (rejectedSize) toast(`تم تجاهل ${rejectedSize} صورة أكبر من 5 ميجا.`, { type: "error" });
+    if (rejectedType) toast(`تم تجاهل ${rejectedType} ملف مش صورة.`, { type: "error" });
+    if (rejectedCount) toast(`الحد الأقصى ${MAX_IMAGES} صور.`, { type: "error" });
 
     if (accepted.length) onChange([...images, ...accepted]);
   }

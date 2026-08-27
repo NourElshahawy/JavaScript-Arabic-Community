@@ -1,13 +1,24 @@
-export async function getDiscussions(supabase, { limit = 20, offset = 0 } = {}) {
-  const { data: discussions, error } = await supabase
+import { contentIdsForTag } from "@/lib/data/tag-filter";
+
+// sort: "newest" (default) | "active" (most comments) | "votes"
+export async function getDiscussions(supabase, { limit = 20, offset = 0, sort = "newest", tagSlug } = {}) {
+  const tagIds = await contentIdsForTag(supabase, "discussion", tagSlug);
+  if (tagIds && tagIds.length === 0) return { discussions: [], error: null };
+
+  let query = supabase
     .from("discussions")
     .select(
       `id, title, body, upvotes_count, downvotes_count, comments_count, views_count, created_at,
        author:profiles!discussions_author_id_fkey(id, username, full_name, avatar_url, reputation)`
     )
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .eq("status", "approved");
+
+  if (tagIds) query = query.in("id", tagIds);
+  if (sort === "active") query = query.order("comments_count", { ascending: false });
+  if (sort === "votes") query = query.order("upvotes_count", { ascending: false });
+  query = query.order("created_at", { ascending: false });
+
+  const { data: discussions, error } = await query.range(offset, offset + limit - 1);
 
   if (error || !discussions?.length) return { discussions: [], error };
 

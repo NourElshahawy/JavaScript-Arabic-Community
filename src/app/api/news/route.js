@@ -5,9 +5,12 @@ import { getPublishedNews } from "@/lib/data/news";
 const PAGE_SIZE = 20;
 
 export async function GET(request) {
-  const offset = Number(new URL(request.url).searchParams.get("offset") ?? 0) || 0;
+  const params = new URL(request.url).searchParams;
+  const offset = Number(params.get("offset") ?? 0) || 0;
+  const tagSlug = params.get("tag") || undefined;
+
   const supabase = await createClient();
-  const { news } = await getPublishedNews(supabase, { offset, limit: PAGE_SIZE });
+  const { news } = await getPublishedNews(supabase, { offset, limit: PAGE_SIZE, tagSlug });
 
   return NextResponse.json({ items: news, hasMore: news.length === PAGE_SIZE });
 }
