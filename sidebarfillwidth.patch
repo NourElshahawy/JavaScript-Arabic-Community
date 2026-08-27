@@ -1,0 +1,29 @@
+diff --git a/src/styles/components.css b/src/styles/components.css
+index 513fb4a..3b8f095 100644
+--- a/src/styles/components.css
++++ b/src/styles/components.css
+@@ -70,7 +70,10 @@
+   margin: 0 auto;
+   padding: var(--space-5) var(--space-4) var(--space-7);
+   display: grid;
+-  grid-template-columns: minmax(0, var(--content-max-width)) var(--sidebar-width);
++  /* Content stays pinned at its reading-width cap; the sidebar absorbs
++     whatever space is left over instead of leaving it empty next to a
++     fixed-width column. */
++  grid-template-columns: var(--content-max-width) minmax(var(--sidebar-width), 1fr);
+   gap: var(--space-6);
+   align-items: start;
+   transition: grid-template-columns var(--duration-base) var(--ease-standard);
+@@ -80,6 +83,12 @@
+   grid-template-columns: minmax(0, 1fr) 56px;
+ }
+ 
++@media (max-width: 1180px) {
++  .app-main {
++    grid-template-columns: minmax(0, var(--content-max-width)) minmax(var(--sidebar-width), 1fr);
++  }
++}
++
+ @media (max-width: 920px) {
+   .app-main {
+     grid-template-columns: 1fr;

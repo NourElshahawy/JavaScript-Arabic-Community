@@ -11,6 +11,7 @@ import { LikeButton } from "@/components/post/LikeButton";
 import { BookmarkButton } from "@/components/post/BookmarkButton";
 import { ShareButton } from "@/components/post/ShareButton";
 import { ReportDialog } from "@/components/post/ReportDialog";
+import { PostImages } from "@/components/post/PostImages";
 import { CommentSection } from "@/components/post/CommentSection";
 import { timeAgo, formatCount } from "@/lib/format";
 
@@ -45,6 +46,8 @@ export default async function PostDetailPage({ params }) {
       </div>
 
       <p className="post__body">{post.body}</p>
+
+      <PostImages images={post.images} />
 
       <TagList tags={post.tags} />
 

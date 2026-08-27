@@ -10,12 +10,14 @@ import { createClient } from "@/lib/supabase/client";
 import { Field, Input } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { Turnstile, isCaptchaEnabled } from "@/components/auth/Turnstile";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/";
   const [serverError, setServerError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
   const {
     register,
     handleSubmit,
@@ -25,7 +27,10 @@ function LoginForm() {
   async function onSubmit(values) {
     setServerError("");
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword(values);
+    const { error } = await supabase.auth.signInWithPassword({
+      ...values,
+      options: { captchaToken: captchaToken || undefined },
+    });
 
     if (error) {
       setServerError("البريد الإلكتروني أو كلمة المرور غير صحيحة.");
@@ -62,9 +67,11 @@ function LoginForm() {
           </Link>
         </div>
 
+        <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken("")} />
+
         {serverError ? <span className="field__error">{serverError}</span> : null}
 
-        <Button type="submit" full disabled={isSubmitting}>
+        <Button type="submit" full disabled={isSubmitting || (isCaptchaEnabled && !captchaToken)}>
           {isSubmitting ? "جاري الدخول..." : "تسجيل الدخول"}
         </Button>
       </form>

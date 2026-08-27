@@ -3,16 +3,18 @@ import { HelpCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { getQuestions } from "@/lib/data/questions";
-import { QuestionCard } from "@/components/post/QuestionCard";
 import { EmptyState } from "@/components/ui/States";
 import { Button } from "@/components/ui/Button";
+import { LoadMoreList } from "@/components/ui/LoadMoreList";
 
 export const metadata = { title: "الأسئلة" };
+
+const PAGE_SIZE = 20;
 
 export default async function QuestionsPage() {
   const supabase = await createClient();
   const { user } = await getCurrentUser();
-  const { questions } = await getQuestions(supabase);
+  const { questions } = await getQuestions(supabase, { limit: PAGE_SIZE });
 
   return (
     <div>
@@ -30,7 +32,7 @@ export default async function QuestionsPage() {
           <EmptyState icon={HelpCircle} title="لا توجد أسئلة بعد" description="كن أول من يطرح سؤالاً تقنيًا على المجتمع." />
         </div>
       ) : (
-        questions.map((q) => <QuestionCard key={q.id} question={q} />)
+        <LoadMoreList type="question" endpoint="/api/questions" initialItems={questions} initialHasMore={questions.length === PAGE_SIZE} />
       )}
     </div>
   );

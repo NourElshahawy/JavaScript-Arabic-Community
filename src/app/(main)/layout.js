@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
-import { Sidebar, BottomNav } from "@/components/layout/Sidebar";
+import { BottomNav } from "@/components/layout/Sidebar";
+import { MainGrid } from "@/components/layout/MainGrid";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 
 export default async function MainLayout({ children }) {
@@ -20,14 +21,7 @@ export default async function MainLayout({ children }) {
             : "تم إيقاف حسابك مؤقتًا. لا يمكنك النشر أو التعليق أو التصويت حتى تتم إعادة تفعيله."}
         </div>
       ) : null}
-      <main className="app-main">
-        <div>{children}</div>
-        <aside className="app-main__sidebar">
-          <div className="card">
-            <Sidebar />
-          </div>
-        </aside>
-      </main>
+      <MainGrid>{children}</MainGrid>
       <BottomNav />
     </div>
   );

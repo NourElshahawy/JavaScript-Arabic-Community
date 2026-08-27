@@ -1,5 +1,6 @@
 import "@/styles/globals.css";
 import { IBM_Plex_Sans_Arabic } from "next/font/google";
+import { Analytics } from "@/components/Analytics";
 
 const plexArabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic", "latin"],
@@ -29,7 +30,10 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="ar" dir="rtl" className={plexArabic.variable}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

@@ -1,4 +1,4 @@
-export async function getPublishedInterviews(supabase, { limit = 30 } = {}) {
+export async function getPublishedInterviews(supabase, { limit = 20, offset = 0 } = {}) {
   const { data, error } = await supabase
     .from("interview_experiences")
     .select(
@@ -7,7 +7,7 @@ export async function getPublishedInterviews(supabase, { limit = 30 } = {}) {
     )
     .eq("status", "approved")
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   return { interviews: data ?? [], error };
 }

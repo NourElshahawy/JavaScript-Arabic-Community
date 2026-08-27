@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 const SIZE_CLASS = {
   xs: "avatar--xs",
   sm: "avatar--sm",
@@ -5,6 +7,8 @@ const SIZE_CLASS = {
   lg: "avatar--lg",
   xl: "avatar--xl",
 };
+
+const SIZE_PX = { xs: 20, sm: 28, md: 40, lg: 64, xl: 96 };
 
 function initials(name) {
   if (!name) return "؟";
@@ -18,10 +22,9 @@ export function Avatar({ src, name, size = "md", className = "" }) {
   const classes = ["avatar", SIZE_CLASS[size], className].filter(Boolean).join(" ");
 
   if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
     return (
       <span className={classes}>
-        <img src={src} alt={name || ""} />
+        <Image src={src} alt={name || ""} fill sizes={`${SIZE_PX[size]}px`} style={{ objectFit: "cover" }} />
       </span>
     );
   }

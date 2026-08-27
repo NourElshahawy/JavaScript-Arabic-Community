@@ -1,4 +1,4 @@
-export async function getPublishedNews(supabase, { limit = 30 } = {}) {
+export async function getPublishedNews(supabase, { limit = 20, offset = 0 } = {}) {
   const { data, error } = await supabase
     .from("news")
     .select(
@@ -7,7 +7,7 @@ export async function getPublishedNews(supabase, { limit = 30 } = {}) {
     )
     .eq("status", "approved")
     .order("published_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   return { news: data ?? [], error };
 }

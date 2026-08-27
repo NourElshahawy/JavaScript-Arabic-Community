@@ -1,3 +1,13 @@
+export async function getUsers(supabase, { limit = 20, offset = 0 } = {}) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, full_name, avatar_url, bio, reputation")
+    .order("reputation", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  return { users: data ?? [], error };
+}
+
 export async function getProfileByUsername(supabase, username, { viewerId } = {}) {
   const { data: profile, error } = await supabase.from("profiles").select("*").eq("username", username).maybeSingle();
 

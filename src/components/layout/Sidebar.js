@@ -21,9 +21,9 @@ export function Sidebar() {
   return (
     <nav aria-label="التنقل الرئيسي" style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
       {LINKS.map(({ href, label, icon: Icon }) => (
-        <Link key={href} href={href} className="nav-link" data-active={pathname === href}>
+        <Link key={href} href={href} className="nav-link" data-active={pathname === href} title={label}>
           <Icon size={18} className="nav-link__icon" />
-          {label}
+          <span className="nav-link__label">{label}</span>
         </Link>
       ))}
     </nav>

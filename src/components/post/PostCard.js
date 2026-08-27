@@ -6,6 +6,7 @@ import { LikeButton } from "@/components/post/LikeButton";
 import { BookmarkButton } from "@/components/post/BookmarkButton";
 import { ShareButton } from "@/components/post/ShareButton";
 import { ReportDialog } from "@/components/post/ReportDialog";
+import { PostImages } from "@/components/post/PostImages";
 import { timeAgo, formatCount } from "@/lib/format";
 
 export function PostCard({ post, isAuthenticated }) {
@@ -25,6 +26,8 @@ export function PostCard({ post, isAuthenticated }) {
       <Link href={`/posts/${post.id}`}>
         <p className="post__body">{post.body}</p>
       </Link>
+
+      <PostImages images={post.images} />
 
       <TagList tags={post.tags} />
 

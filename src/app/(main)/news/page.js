@@ -3,16 +3,18 @@ import { Newspaper } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { getPublishedNews } from "@/lib/data/news";
-import { NewsCard } from "@/components/post/NewsCard";
 import { EmptyState } from "@/components/ui/States";
 import { Button } from "@/components/ui/Button";
+import { LoadMoreList } from "@/components/ui/LoadMoreList";
 
 export const metadata = { title: "الأخبار" };
+
+const PAGE_SIZE = 20;
 
 export default async function NewsPage() {
   const supabase = await createClient();
   const { user } = await getCurrentUser();
-  const { news } = await getPublishedNews(supabase);
+  const { news } = await getPublishedNews(supabase, { limit: PAGE_SIZE });
 
   return (
     <div>
@@ -30,7 +32,7 @@ export default async function NewsPage() {
           <EmptyState icon={Newspaper} title="لا توجد أخبار منشورة بعد" description="أرسل خبرًا عن JavaScript ecosystem وسيظهر هنا بعد مراجعة فريق الإشراف." />
         </div>
       ) : (
-        news.map((item) => <NewsCard key={item.id} item={item} />)
+        <LoadMoreList type="news" endpoint="/api/news" initialItems={news} initialHasMore={news.length === PAGE_SIZE} />
       )}
     </div>
   );

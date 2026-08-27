@@ -10,10 +10,12 @@ import { createClient } from "@/lib/supabase/client";
 import { Field, Input } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { Turnstile, isCaptchaEnabled } from "@/components/auth/Turnstile";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
   const {
     register,
     handleSubmit,
@@ -31,6 +33,7 @@ export default function RegisterPage() {
       options: {
         data: { full_name: values.fullName, username: values.username },
         emailRedirectTo: `${siteUrl}/auth/callback?next=/onboarding/profile-setup`,
+        captchaToken: captchaToken || undefined,
       },
     });
 
@@ -83,9 +86,11 @@ export default function RegisterPage() {
           />
         </Field>
 
+        <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken("")} />
+
         {serverError ? <span className="field__error">{serverError}</span> : null}
 
-        <Button type="submit" full disabled={isSubmitting}>
+        <Button type="submit" full disabled={isSubmitting || (isCaptchaEnabled && !captchaToken)}>
           {isSubmitting ? "جاري إنشاء الحساب..." : "إنشاء حساب"}
         </Button>
       </form>

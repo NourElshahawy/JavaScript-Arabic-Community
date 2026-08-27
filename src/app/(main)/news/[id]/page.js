@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { ExternalLink, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
@@ -31,6 +32,13 @@ export default async function NewsDetailPage({ params }) {
     <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
       <span className="content-type-label content-type-label--news">خبر · {news.source_name}</span>
       <h1>{news.title}</h1>
+
+      {news.image_url ? (
+        <div style={{ position: "relative", aspectRatio: "16 / 9", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+          <Image src={news.image_url} alt="" fill sizes="(max-width: 640px) 100vw, 720px" style={{ objectFit: "cover" }} />
+        </div>
+      ) : null}
+
       <p className="post__body">{news.summary}</p>
 
       <a href={news.source_url} target="_blank" rel="noreferrer" className="btn btn--outline ltr" style={{ alignSelf: "flex-start" }}>

@@ -1,4 +1,4 @@
-export async function getDiscussions(supabase, { limit = 30 } = {}) {
+export async function getDiscussions(supabase, { limit = 20, offset = 0 } = {}) {
   const { data: discussions, error } = await supabase
     .from("discussions")
     .select(
@@ -7,7 +7,7 @@ export async function getDiscussions(supabase, { limit = 30 } = {}) {
     )
     .eq("status", "approved")
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (error || !discussions?.length) return { discussions: [], error };
 

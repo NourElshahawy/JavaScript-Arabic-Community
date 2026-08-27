@@ -6,11 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { attachTags } from "@/lib/tags";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { ImagePicker } from "@/components/post/ImagePicker";
 
 export function PostComposer({ profile }) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [tagsInput, setTagsInput] = useState("");
+  const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -23,9 +25,27 @@ export function PostComposer({ profile }) {
     setError("");
     const supabase = createClient();
 
+    let imageUrls = [];
+    if (images.length) {
+      const uploads = await Promise.all(
+        images.map(async ({ file }, index) => {
+          const path = `${profile.id}/${Date.now()}-${index}-${file.name}`;
+          const { error: uploadError } = await supabase.storage.from("post-images").upload(path, file);
+          if (uploadError) return null;
+          return supabase.storage.from("post-images").getPublicUrl(path).data.publicUrl;
+        })
+      );
+      imageUrls = uploads.filter(Boolean);
+      if (imageUrls.length !== images.length) {
+        setError("تعذّر رفع بعض الصور، حاول مرة أخرى.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const { data: post, error: insertError } = await supabase
       .from("posts")
-      .insert({ author_id: profile.id, body: trimmed })
+      .insert({ author_id: profile.id, body: trimmed, images: imageUrls })
       .select("id")
       .single();
 
@@ -41,6 +61,7 @@ export function PostComposer({ profile }) {
 
     setBody("");
     setTagsInput("");
+    setImages([]);
     setSubmitting(false);
     router.refresh();
   }
@@ -58,6 +79,9 @@ export function PostComposer({ profile }) {
           style={{ flex: 1 }}
         />
       </div>
+
+      <ImagePicker images={images} onChange={setImages} disabled={submitting} />
+
       <input
         type="text"
         className="input ltr"

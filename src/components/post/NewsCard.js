@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ExternalLink, MessageCircle } from "lucide-react";
 import { timeAgo, formatCount } from "@/lib/format";
 
@@ -11,6 +12,13 @@ export function NewsCard({ item }) {
           {item.title}
         </h3>
       </Link>
+
+      {item.image_url ? (
+        <div style={{ position: "relative", aspectRatio: "16 / 9", margin: "var(--space-2) 0", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+          <Image src={item.image_url} alt="" fill sizes="(max-width: 640px) 100vw, 600px" style={{ objectFit: "cover" }} />
+        </div>
+      ) : null}
+
       <p className="post__body">{item.summary}</p>
 
       <div className="post__footer">

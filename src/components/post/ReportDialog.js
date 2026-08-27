@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Flag } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +15,8 @@ const REASONS = [
   { value: "other", label: "أخرى" },
 ];
 
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
 export function ReportDialog({ contentType, contentId, isAuthenticated, trigger }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -22,6 +24,46 @@ export function ReportDialog({ contentType, contentId, isAuthenticated, trigger 
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const panelRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const panel = panelRef.current;
+    panel?.querySelector(FOCUSABLE_SELECTOR)?.focus();
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        handleClose();
+        return;
+      }
+      if (event.key !== "Tab" || !panel) return;
+
+      const focusable = Array.from(panel.querySelectorAll(FOCUSABLE_SELECTOR));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function handleOpen() {
     if (!isAuthenticated) {
@@ -55,14 +97,17 @@ export function ReportDialog({ contentType, contentId, isAuthenticated, trigger 
     setDone(false);
     setDescription("");
     setReason("spam");
+    triggerRef.current?.focus();
   }
 
   return (
     <>
       {trigger ? (
-        <span onClick={handleOpen}>{trigger}</span>
+        <span ref={triggerRef} tabIndex={-1} onClick={handleOpen}>
+          {trigger}
+        </span>
       ) : (
-        <button type="button" className="action-btn" onClick={handleOpen}>
+        <button ref={triggerRef} type="button" className="action-btn" onClick={handleOpen}>
           <Flag size={16} /> إبلاغ
         </button>
       )}
@@ -71,6 +116,7 @@ export function ReportDialog({ contentType, contentId, isAuthenticated, trigger 
         <div
           role="dialog"
           aria-modal="true"
+          aria-labelledby="report-dialog-title"
           style={{
             position: "fixed",
             inset: 0,
@@ -83,10 +129,12 @@ export function ReportDialog({ contentType, contentId, isAuthenticated, trigger 
           }}
           onClick={handleClose}
         >
-          <div className="card" style={{ maxWidth: 400, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+          <div ref={panelRef} className="card" style={{ maxWidth: 400, width: "100%" }} onClick={(e) => e.stopPropagation()}>
             {done ? (
               <div className="state-block" style={{ padding: "var(--space-4)" }}>
-                <div className="state-block__title">تم إرسال البلاغ</div>
+                <div className="state-block__title" id="report-dialog-title">
+                  تم إرسال البلاغ
+                </div>
                 <p className="state-block__description">شكرًا لمساعدتك في الحفاظ على المجتمع. سيراجعه فريق الإشراف.</p>
                 <Button variant="outline" size="sm" onClick={handleClose}>
                   إغلاق
@@ -94,7 +142,7 @@ export function ReportDialog({ contentType, contentId, isAuthenticated, trigger 
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                <h3>الإبلاغ عن هذا المحتوى</h3>
+                <h3 id="report-dialog-title">الإبلاغ عن هذا المحتوى</h3>
                 <div className="field">
                   <label className="field__label" htmlFor="report-reason">
                     السبب

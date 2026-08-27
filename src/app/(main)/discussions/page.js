@@ -3,16 +3,18 @@ import { MessagesSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/current-user";
 import { getDiscussions } from "@/lib/data/discussions";
-import { DiscussionCard } from "@/components/post/DiscussionCard";
 import { EmptyState } from "@/components/ui/States";
 import { Button } from "@/components/ui/Button";
+import { LoadMoreList } from "@/components/ui/LoadMoreList";
 
 export const metadata = { title: "النقاشات" };
+
+const PAGE_SIZE = 20;
 
 export default async function DiscussionsPage() {
   const supabase = await createClient();
   const { user } = await getCurrentUser();
-  const { discussions } = await getDiscussions(supabase);
+  const { discussions } = await getDiscussions(supabase, { limit: PAGE_SIZE });
 
   return (
     <div>
@@ -30,7 +32,7 @@ export default async function DiscussionsPage() {
           <EmptyState icon={MessagesSquare} title="لا توجد نقاشات بعد" description="ابدأ نقاشًا مفتوحًا حول تقنية أو قرار هندسي." />
         </div>
       ) : (
-        discussions.map((d) => <DiscussionCard key={d.id} discussion={d} />)
+        <LoadMoreList type="discussion" endpoint="/api/discussions" initialItems={discussions} initialHasMore={discussions.length === PAGE_SIZE} />
       )}
     </div>
   );

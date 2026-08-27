@@ -1,4 +1,4 @@
-export async function getQuestions(supabase, { limit = 30 } = {}) {
+export async function getQuestions(supabase, { limit = 20, offset = 0 } = {}) {
   const { data: questions, error } = await supabase
     .from("questions")
     .select(
@@ -7,7 +7,7 @@ export async function getQuestions(supabase, { limit = 30 } = {}) {
     )
     .eq("status", "approved")
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (error || !questions?.length) return { questions: [], error };
 
