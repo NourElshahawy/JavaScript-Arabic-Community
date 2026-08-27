@@ -97,23 +97,48 @@
 }
 
 /* The sidebar stays in its column on smaller screens too (no bottom bar);
-   below this width it auto-folds into the icon rail regardless of the
+   below this width it auto-folds into a clean icon rail regardless of the
    stored toggle state. */
 @media (max-width: 860px) {
   .app-main,
-  .app-main[data-sidebar="expanded"] {
-    grid-template-columns: minmax(0, 1fr) 52px;
+  .app-main[data-sidebar="expanded"],
+  .app-main[data-sidebar="collapsed"] {
+    grid-template-columns: minmax(0, 1fr) 60px;
     gap: var(--space-3);
   }
+
+  .app-main__sidebar {
+    gap: var(--space-2);
+  }
+
+  .app-main__sidebar .sidebar-card {
+    width: 60px;
+    padding: var(--space-1);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   .app-main__sidebar .nav-link {
     justify-content: center;
-    padding: var(--space-2);
+    padding: 0;
+    width: 44px;
+    height: 44px;
+    margin: 0 auto;
+    border-radius: var(--radius-md);
   }
+
+  .app-main__sidebar .nav-link svg {
+    width: 22px;
+    height: 22px;
+  }
+
   .app-main__sidebar .nav-link__label,
   .app-main__sidebar .sidebar-toggle,
   .app-main__sidebar .sidebar-widget {
     display: none;
   }
+
   .app-main__sidebar .sidebar-card .nav-link:first-child {
     margin-top: 0;
   }
@@ -122,7 +147,19 @@
 @media (max-width: 480px) {
   .app-main {
     max-width: 100%;
-    padding-inline: var(--space-3);
+    padding-inline: var(--space-2);
+  }
+  .app-main,
+  .app-main[data-sidebar="expanded"],
+  .app-main[data-sidebar="collapsed"] {
+    grid-template-columns: minmax(0, 1fr) 52px;
+  }
+  .app-main__sidebar .sidebar-card {
+    width: 52px;
+  }
+  .app-main__sidebar .nav-link {
+    width: 40px;
+    height: 40px;
   }
 }
 
@@ -1416,6 +1453,82 @@ a.tag:hover {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   flex-shrink: 0;
+}
+
+/* --- Tag input with autocomplete ----------------------------------- */
+
+.tag-input {
+  position: relative;
+}
+
+.tag-input__control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  min-height: 40px;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: text;
+}
+
+.tag-input__control:focus-within {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px var(--color-brand-subtle);
+}
+
+.tag-input__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-subtle);
+  color: var(--color-brand);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+.tag-input__chip button {
+  display: flex;
+  align-items: center;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-full);
+}
+
+.tag-input__chip button:hover {
+  background: var(--color-brand-border);
+}
+
+.tag-input__field {
+  flex: 1;
+  min-width: 100px;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-base);
+  height: 28px;
+}
+
+.tag-input__menu {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 4px);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.tag-input__menu .menu__item[data-active="true"] {
+  background: var(--color-surface-hover);
 }
 
 /* --- Tag filter bar (list sections) --------------------------------- */

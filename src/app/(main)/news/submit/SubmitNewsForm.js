@@ -7,10 +7,12 @@ import { attachTags } from "@/lib/tags";
 import { errorMessage } from "@/lib/errors";
 import { Field, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { TagInput } from "@/components/ui/TagInput";
 
 export function SubmitNewsForm({ userId }) {
   const router = useRouter();
-  const [form, setForm] = useState({ title: "", summary: "", sourceUrl: "", sourceName: "", imageUrl: "", tags: "" });
+  const [form, setForm] = useState({ title: "", summary: "", sourceUrl: "", sourceName: "", imageUrl: "" });
+  const [tags, setTags] = useState([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -49,8 +51,8 @@ export function SubmitNewsForm({ userId }) {
       return;
     }
 
-    if (form.tags.trim()) {
-      await attachTags(supabase, "news", news.id, form.tags);
+    if (tags.length) {
+      await attachTags(supabase, "news", news.id, tags.join(","));
     }
 
     setDone(true);
@@ -91,8 +93,8 @@ export function SubmitNewsForm({ userId }) {
         <Input id="imageUrl" className="ltr" type="url" value={form.imageUrl} onChange={update("imageUrl")} />
       </Field>
 
-      <Field label="الوسوم" htmlFor="tags" hint="افصل بينها بفاصلة">
-        <Input id="tags" className="ltr" value={form.tags} onChange={update("tags")} />
+      <Field label="الوسوم" hint="اكتب # أو أول حروف الوسم واختر من القائمة">
+        <TagInput value={tags} onChange={setTags} />
       </Field>
 
       {error ? <span className="field__error">{error}</span> : null}

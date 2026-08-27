@@ -7,12 +7,13 @@ import { attachTags } from "@/lib/tags";
 import { errorMessage } from "@/lib/errors";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { TagInput } from "@/components/ui/TagInput";
 import { ImagePicker } from "@/components/post/ImagePicker";
 
 export function PostComposer({ profile }) {
   const router = useRouter();
   const [body, setBody] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
+  const [tags, setTags] = useState([]);
   const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -56,12 +57,12 @@ export function PostComposer({ profile }) {
       return;
     }
 
-    if (tagsInput.trim()) {
-      await attachTags(supabase, "post", post.id, tagsInput);
+    if (tags.length) {
+      await attachTags(supabase, "post", post.id, tags.join(","));
     }
 
     setBody("");
-    setTagsInput("");
+    setTags([]);
     setImages([]);
     setSubmitting(false);
     router.refresh();
@@ -83,13 +84,7 @@ export function PostComposer({ profile }) {
 
       <ImagePicker images={images} onChange={setImages} disabled={submitting} />
 
-      <input
-        type="text"
-        className="input ltr"
-        placeholder="tags: react, nodejs"
-        value={tagsInput}
-        onChange={(e) => setTagsInput(e.target.value)}
-      />
+      <TagInput value={tags} onChange={setTags} />
       {error ? <span className="field__error">{error}</span> : null}
       <div className="composer__footer">
         <span className="composer__footer-spacer" />

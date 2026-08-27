@@ -7,12 +7,13 @@ import { attachTags } from "@/lib/tags";
 import { errorMessage } from "@/lib/errors";
 import { Field, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { TagInput } from "@/components/ui/TagInput";
 
 export function NewDiscussionForm({ userId }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
+  const [tags, setTags] = useState([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -43,8 +44,8 @@ export function NewDiscussionForm({ userId }) {
       return;
     }
 
-    if (tagsInput.trim()) {
-      await attachTags(supabase, "discussion", discussion.id, tagsInput);
+    if (tags.length) {
+      await attachTags(supabase, "discussion", discussion.id, tags.join(","));
     }
 
     router.push(`/discussions/${discussion.id}`);
@@ -60,8 +61,8 @@ export function NewDiscussionForm({ userId }) {
         <Textarea id="body" rows={8} value={body} onChange={(e) => setBody(e.target.value)} />
       </Field>
 
-      <Field label="الوسوم" htmlFor="tags" hint="افصل بينها بفاصلة">
-        <Input id="tags" className="ltr" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
+      <Field label="الوسوم" hint="اكتب # أو أول حروف الوسم واختر من القائمة">
+        <TagInput value={tags} onChange={setTags} />
       </Field>
 
       {error ? <span className="field__error">{error}</span> : null}
